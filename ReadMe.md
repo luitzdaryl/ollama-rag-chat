@@ -31,6 +31,11 @@ ollama-chat-app/
 │   │   └── assets/
 │   │       └── theme.css
 │   └── package.json
+|
+|__ .gitignore
+|
+|__ docker-compose.yml
+|
 └── README.md
 ```
 
