@@ -96,7 +96,7 @@ From the project root:
 docker compose up
 ```
 
-or 
+or (if you made some changes):
 
 ```bash
 docker compose up --build
