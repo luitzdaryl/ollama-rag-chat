@@ -1,4 +1,6 @@
 from pathlib import Path
+from pypdf import PdfReader
+
 
 def extract_text(file_path: str) -> str:
     """Extract plain text from a file, dispatching by extension."""
@@ -7,11 +9,14 @@ def extract_text(file_path: str) -> str:
     if suffix in (".txt", ".md"):
         return Path(file_path).read_text(encoding="utf-8")
 
+    if suffix == ".pdf":
+        reader = PdfReader(file_path)
+        pages_text = [page.extract_text() or "" for page in reader.pages]
+        return "\n".join(pages_text)
+
     raise ValueError(f"Unsupported file type: {suffix}")
 
 if __name__ == "__main__":
-    # Quick manual test — create a sample file first:
-    # echo "Hello, this is a test document about weather patterns." > sample.txt
     text = extract_text("sample.txt")
     print("Extracted text:")
     print(text)
