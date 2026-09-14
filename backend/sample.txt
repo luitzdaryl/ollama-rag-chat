@@ -1,1 +1,3 @@
 Hello, this is a test document about weather patterns.
+
+python3 -c "from document_processing import extract_text; print(extract_text('/Users/user/Desktop/OCTON-AI-PROJECTS/TELEVISION-POC/PTS-SCHEDULER/pts-scheduler/docs/PTS-Smart-Scheduler-USER_MANUAL.en-09-07-2026.pdf')[:500])"
