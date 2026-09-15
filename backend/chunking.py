@@ -1,3 +1,12 @@
+def is_low_signal(chunk: str, min_alpha_ratio: float = 0.4) -> bool:
+    """Flag chunks that are mostly punctuation/numbers/whitespace — unlikely
+    to carry retrievable meaning."""
+    if not chunk:
+        return True
+    alpha_count = sum(c.isalpha() for c in chunk)
+    return (alpha_count / len(chunk)) < min_alpha_ratio
+
+
 def chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> list[str]:
     """Split text into overlapping fixed-size chunks.
 
