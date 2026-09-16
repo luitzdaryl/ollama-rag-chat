@@ -22,12 +22,11 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> list[str
     while start < len(text):
         end = start + chunk_size
         chunk = text[start:end].strip()
-        if chunk:
+        if chunk and not is_low_signal(chunk):
             chunks.append(chunk)
         start += chunk_size - overlap  # step forward, but overlap with the previous chunk
 
     return chunks
-
 
 if __name__ == "__main__":
     from document_processing import extract_text
