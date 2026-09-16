@@ -3,7 +3,7 @@ from chunking import chunk_text
 from embeddings import embed_text
 from vector_store import ensure_collection, store_chunks, search
 
-FILE_PATH = "/path/to/PTS-Smart-Scheduler-USER_MANUAL.en-09-07-2026.pdf"  # update this
+FILE_PATH = "/Users/user/Desktop/OCTON-AI-PROJECTS/TELEVISION-POC/PTS-SCHEDULER/pts-scheduler/docs/PTS-Smart-Scheduler-USER_MANUAL.en-09-07-2026.pdf"  # update this accordingly
 
 ensure_collection()
 
