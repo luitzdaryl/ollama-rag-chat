@@ -85,5 +85,42 @@ async def chat(request: Request):
 
     return StreamingResponse(event_stream(), media_type="text/plain")
 
+
+@app.post("/api/documents/upload")
+async def upload_document(file: UploadFile = File(...)):
+    suffix = Path(file.filename).suffix.lower()
+    if suffix not in SUPPORTED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
+
+    # extract_text expects a real file path, not raw bytes — write to a
+    # temp file first, always clean it up afterward regardless of outcome
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+        shutil.copyfileobj(file.file, tmp)
+        tmp_path = tmp.name
+
+    try:
+        text = extract_text(tmp_path)
+        chunks = chunk_text(text)
+        if not chunks:
+            raise HTTPException(status_code=400, detail="No extractable text found in file")
+
+        vectors = [embed_text(c) for c in chunks]
+        store_chunks(filename=file.filename, chunks=chunks, vectors=vectors)
+    finally:
+        os.unlink(tmp_path)
+
+    return {"filename": file.filename, "chunks_stored": len(chunks)}
+
+
+@app.get("/api/documents")
+async def list_documents():
+    return {"documents": list_filenames()}
+
+
+@app.delete("/api/documents/{filename}")
+async def delete_document(filename: str):
+    delete_by_filename(filename)
+    return {"deleted": filename}
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
