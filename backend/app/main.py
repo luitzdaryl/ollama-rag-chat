@@ -1,5 +1,16 @@
 # We need to import the required libraries first
 
+import os
+import shutil
+import tempfile
+from pathlib import Path
+from fastapi import UploadFile, File, HTTPException
+
+from document_processing import extract_text
+from chunking import chunk_text
+from embeddings import embed_text
+from vector_store import ensure_collection, store_chunks, delete_by_filename, list_filenames
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
@@ -17,6 +28,12 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 # OLLAMA_BASE_URL = "http://localhost:11434"  # we'll make this configurable later for Docker
 
 app = FastAPI(title="Ollama Chat Backend")
+
+SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
+
+@app.lifespan("startup")
+async def startup():
+    ensure_collection()
 
 # Allows our Vue frontend (different port) to call this API from the browser
 app.add_middleware(
