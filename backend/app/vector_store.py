@@ -48,3 +48,23 @@ def search(query_vector: list[float], top_k: int = 5):
         query=query_vector,
         limit=top_k,
     ).points
+
+
+def list_filenames() -> list[str]:
+    """Return the distinct filenames currently stored, by scrolling through
+    every point's payload and collecting unique values."""
+    filenames = set()
+    offset = None
+    while True:
+        points, offset = client.scroll(
+            collection_name=COLLECTION_NAME,
+            with_payload=["filename"],
+            with_vectors=False,
+            limit=100,
+            offset=offset,
+        )
+        for point in points:
+            filenames.add(point.payload["filename"])
+        if offset is None:
+            break
+    return sorted(filenames)
