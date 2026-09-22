@@ -31,7 +31,7 @@ app = FastAPI(title="Ollama Chat Backend")
 
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
 
-@app.lifespan("startup")
+@app.on_event("startup")
 async def startup():
     ensure_collection()
 
