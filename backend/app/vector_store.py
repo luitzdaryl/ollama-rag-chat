@@ -1,5 +1,6 @@
 from qdrant_client import QdrantClient
 from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import Distance, VectorParams, PointStruct, Filter, FieldCondition, MatchValue
 import uuid
 
 COLLECTION_NAME = "documents"
@@ -37,7 +38,9 @@ def delete_by_filename(filename: str):
     file' feature the frontend will expose."""
     client.delete(
         collection_name=COLLECTION_NAME,
-        points_selector={"filter": {"must": [{"key": "filename", "match": {"value": filename}}]}},
+        points_selector=Filter(
+            must=[FieldCondition(key="filename", match=MatchValue(value=filename))]
+        ),
     )
 
 
