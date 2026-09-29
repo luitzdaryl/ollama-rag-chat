@@ -90,12 +90,38 @@ async def chat(request: Request):
     model = body.get("model")
     messages = body.get("messages", [])
 
+    if not messages:
+        raise HTTPException(status_code=400, detail="No messages provided")
+
+    last_user_message = messages[-1]["content"]
+
+    # Retrieval step
+    question_vector = embed_text(last_user_message)
+    results = search(question_vector, top_k=5)
+    retrieved_chunks = [
+        {"filename": r.payload["filename"], "text": r.payload["text"], "score": r.score}
+        for r in results
+    ]
+
+    # Replace the last user message with the RAG-augmented version;
+    # everything else (prior turns) stays as real conversation history
+    augmented_messages = messages[:-1] + [
+        {"role": "user", "content": build_rag_prompt(last_user_message, retrieved_chunks)}
+    ]
+
+    sources = [
+        {"filename": c["filename"], "score": round(c["score"], 4)}
+        for c in retrieved_chunks
+    ]
+
     async def event_stream():
+        yield f"__SOURCES__{json.dumps(sources)}\n"  # sent first, before any answer text
+
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream(
                 "POST",
                 f"{OLLAMA_BASE_URL}/api/chat",
-                json={"model": model, "messages": messages, "stream": True},
+                json={"model": model, "messages": augmented_messages, "stream": True},
             ) as response:
                 async for line in response.aiter_lines():
                     if not line:
