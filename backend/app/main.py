@@ -16,6 +16,9 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import uvicorn
 
+from vector_store import search
+from embeddings import embed_text
+
 # additional libraries for the chat streaming endpoint
 
 from fastapi import Request
