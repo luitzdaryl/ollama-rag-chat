@@ -63,6 +63,25 @@ async def list_models():
         data = resp.json()
     return [m["name"] for m in data.get("models", [])]
 
+# This function builds a prompt for the RAG model, combining the user's question with the retrieved context chunks from the vector store.
+def build_rag_prompt(question: str, retrieved_chunks: list[dict]) -> str:
+    if not retrieved_chunks:
+        return question  # no documents uploaded yet — fall back to a plain question
+
+    context_blocks = []
+    for i, chunk in enumerate(retrieved_chunks):
+        context_blocks.append(f"[Source {i+1}: {chunk['filename']}]\n{chunk['text']}")
+    context = "\n\n".join(context_blocks)
+
+    return (
+        "Answer the question using ONLY the context below. "
+        "If the context doesn't contain the answer, say you don't know — "
+        "do not make up information.\n\n"
+        f"Context:\n{context}\n\n"
+        f"Question: {question}"
+    )
+
+
 # This is the main chat endpoint that streams responses from Ollama to the frontend
 
 @app.post("/api/chat")
