@@ -151,6 +151,29 @@ async function deleteDocument(filename) {
     <select class="model-select" v-model="selectedModel">
       <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
     </select>
+    
+    <!-- New RAG documents panel -->
+
+     <div class="documents-panel">
+  <div class="documents-header">
+    <h3>📄 Documents</h3>
+    <label class="upload-button">
+      {{ uploading ? 'Uploading...' : '+ Upload' }}
+      <input type="file" @change="handleFileUpload" :disabled="uploading" hidden />
+    </label>
+  </div>
+
+  <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
+
+  <ul v-if="documents.length" class="document-list">
+    <li v-for="doc in documents" :key="doc" class="document-item">
+      <span class="document-name">{{ doc }}</span>
+      <button class="delete-button" @click="deleteDocument(doc)" title="Remove">✕</button>
+    </li>
+  </ul>
+  <p v-else class="no-documents">No documents uploaded yet — chat will answer from the model's general knowledge only.</p>
+</div>
+    
 
     <div class="chat-window">
       <div
