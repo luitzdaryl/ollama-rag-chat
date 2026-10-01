@@ -29,11 +29,14 @@ watch(theme, applyTheme)
 
 const API_BASE = 'http://localhost:8000'
 
+// onMounted is a Vue lifecycle hook that runs after the component is mounted to the DOM
+
 onMounted(async () => {
   applyTheme()
   const res = await fetch(`${API_BASE}/api/models`)
   models.value = await res.json()
   if (models.value.length > 0) selectedModel.value = models.value[0]
+  await loadDocuments()
 })
 
 // Grows the textarea as the user types, capped at 160px
