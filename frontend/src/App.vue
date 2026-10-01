@@ -151,7 +151,7 @@ async function deleteDocument(filename) {
     <select class="model-select" v-model="selectedModel">
       <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
     </select>
-    
+
     <!-- New RAG documents panel -->
 
      <div class="documents-panel">
@@ -391,5 +391,84 @@ async function deleteDocument(filename) {
 
 .bubble :deep(tbody tr:nth-child(even) td) {
   background: rgba(255, 255, 255, 0.03);
+}
+
+
+/* New RAG documents panel styles */
+
+.documents-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.documents-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.documents-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.upload-button {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.upload-error {
+  color: #f87171;
+  font-size: 0.85rem;
+  margin: 8px 0 0;
+}
+
+.document-list {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.document-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-surface-alt);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
+.document-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.delete-button {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0 4px;
+}
+.delete-button:hover { color: #f87171; }
+
+.no-documents {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin: 10px 0 0;
 }
 </style>
