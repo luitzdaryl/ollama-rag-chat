@@ -55,15 +55,16 @@ function handleComposerKey(e) {
   }
 }
 
+
 async function sendMessage() {
   const text = userInput.value.trim()
   if (!text || isStreaming.value) return
 
   messages.value.push({ role: 'user', content: text })
   userInput.value = ''
-  await nextTick(autoResizeComposer) // reset textarea height after clearing
+  await nextTick(autoResizeComposer)
 
-  const assistantMessage = reactive({ role: 'assistant', content: '' })
+  const assistantMessage = reactive({ role: 'assistant', content: '', sources: [] })
   messages.value.push(assistantMessage)
 
   isStreaming.value = true
@@ -81,10 +82,33 @@ async function sendMessage() {
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
 
+    let buffer = ''
+    let sourcesParsed = false
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      assistantMessage.content += decoder.decode(value, { stream: true })
+
+      buffer += decoder.decode(value, { stream: true })
+
+      if (!sourcesParsed) {
+        const newlineIndex = buffer.indexOf('\n')
+        if (newlineIndex === -1) continue  // haven't received the full sources line yet — keep buffering
+
+        const firstLine = buffer.slice(0, newlineIndex)
+        if (firstLine.startsWith('__SOURCES__')) {
+          try {
+            assistantMessage.sources = JSON.parse(firstLine.slice('__SOURCES__'.length))
+          } catch (e) {
+            console.error('Failed to parse sources:', e)
+          }
+        }
+        buffer = buffer.slice(newlineIndex + 1)
+        sourcesParsed = true
+      }
+
+      assistantMessage.content += buffer
+      buffer = ''
     }
   } catch (err) {
     assistantMessage.content = 'Error: could not reach the backend.'
@@ -93,6 +117,7 @@ async function sendMessage() {
     isStreaming.value = false
   }
 }
+
 
 // New function to handle file uploads for RAG
 
