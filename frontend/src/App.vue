@@ -90,6 +90,50 @@ async function sendMessage() {
     isStreaming.value = false
   }
 }
+
+// New function to handle file uploads for RAG
+
+async function loadDocuments() {
+  const res = await fetch(`${API_BASE}/api/documents`)
+  const data = await res.json()
+  documents.value = data.documents
+}
+
+async function handleFileUpload(event) {
+  const file = event.target.files[0]
+  if (!file) return
+
+  uploading.value = true
+  uploadError.value = ''
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`${API_BASE}/api/documents/upload`, {
+      method: 'POST',
+      body: formData,
+    })
+    if (!res.ok) {
+      const err = await res.json()
+      throw new Error(err.detail || 'Upload failed')
+    }
+    await loadDocuments()
+  } catch (e) {
+    uploadError.value = e.message
+  } finally {
+    uploading.value = false
+    event.target.value = ''  // reset so re-uploading the same filename works
+  }
+}
+
+async function deleteDocument(filename) {
+  // encodeURIComponent matters here — filenames with spaces or special
+  // characters would otherwise break the URL path
+  await fetch(`${API_BASE}/api/documents/${encodeURIComponent(filename)}`, {
+    method: 'DELETE',
+  })
+  await loadDocuments()
+}
+
 </script>
 
 <template>
