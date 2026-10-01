@@ -3,13 +3,18 @@ import { ref, reactive, onMounted, watch, nextTick } from 'vue'
 import { marked } from 'marked'
 marked.setOptions({ breaks: true, gfm: true })
 
-
 const models = ref([])
 const selectedModel = ref('')
 const userInput = ref('')
 const messages = ref([])
 const isStreaming = ref(false)
 const composerEl = ref(null) // reference to the <textarea> DOM element
+
+// New refsfor RAG 
+
+const documents = ref([])
+const uploading = ref(false)
+const uploadError = ref('')
 
 const theme = ref(localStorage.getItem('theme') || 'dark')
 
