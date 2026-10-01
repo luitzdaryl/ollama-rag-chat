@@ -506,4 +506,13 @@ async function deleteDocument(filename) {
   font-size: 0.85rem;
   margin: 10px 0 0;
 }
+
+.sources-expander {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  color: var(--color-text-secondary);
+}
+.sources-list { margin: 4px 0 0; padding-left: 18px; }
+.source-score { opacity: 0.7; }
+
 </style>
