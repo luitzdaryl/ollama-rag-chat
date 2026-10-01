@@ -214,6 +214,16 @@ async function deleteDocument(filename) {
             {{ msg.content }}
           </template>
         </div>
+
+        <!-- Show sources if available -->
+        <details v-if="msg.sources && msg.sources.length" class="sources-expander">
+          <summary>Sources ({{ msg.sources.length }})</summary>
+          <ul class="sources-list">
+            <li v-for="(src, i) in msg.sources" :key="i">
+              {{ src.filename }} <span class="source-score">({{ src.score }})</span>
+            </li>
+          </ul>
+        </details>
       </div>
     </div>
 
