@@ -19,6 +19,26 @@ const uploadError = ref('')
 
 const theme = ref(localStorage.getItem('theme') || 'dark')
 
+//------------------------------------------------
+
+// System Prompt Template for RAG — stored in localStorage so users can customize it and have it persist across sessions
+
+const DEFAULT_PROMPT_TEMPLATE = `Answer the question using ONLY the context below. If the context doesn't contain the answer, say you don't know — do not make up information.
+
+Context:
+{context}
+
+Question: {question}`
+
+const promptTemplate = ref(localStorage.getItem('promptTemplate') || DEFAULT_PROMPT_TEMPLATE)
+
+watch(promptTemplate, (val) => localStorage.setItem('promptTemplate', val))
+
+function resetPromptTemplate() {
+  promptTemplate.value = DEFAULT_PROMPT_TEMPLATE
+}
+//------------------------------------------------
+
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', theme.value)
   localStorage.setItem('theme', theme.value)
@@ -39,6 +59,7 @@ onMounted(async () => {
   if (models.value.length > 0) selectedModel.value = models.value[0]
   await loadDocuments()
 })
+//------------------------------------------------
 
 // Grows the textarea as the user types, capped at 160px
 function autoResizeComposer() {
