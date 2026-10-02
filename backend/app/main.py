@@ -84,6 +84,8 @@ def build_rag_prompt(question: str, retrieved_chunks: list[dict]) -> str:
 
 # This is the main chat endpoint that streams responses from Ollama to the frontend
 
+RELEVANCE_THRESHOLD = 0.45  # a starting point — worth tuning once you see real scores for off-topic messages
+
 @app.post("/api/chat")
 async def chat(request: Request):
     body = await request.json()
@@ -98,20 +100,19 @@ async def chat(request: Request):
     # Retrieval step
     question_vector = embed_text(last_user_message)
     results = search(question_vector, top_k=5)
-    retrieved_chunks = [
+    relevant_chunks = [
         {"filename": r.payload["filename"], "text": r.payload["text"], "score": r.score}
         for r in results
+        if r.score >= RELEVANCE_THRESHOLD
     ]
 
-    # Replace the last user message with the RAG-augmented version;
-    # everything else (prior turns) stays as real conversation history
     augmented_messages = messages[:-1] + [
-        {"role": "user", "content": build_rag_prompt(last_user_message, retrieved_chunks)}
+        {"role": "user", "content": build_rag_prompt(last_user_message, relevant_chunks, prompt_template)}
     ]
 
     sources = [
         {"filename": c["filename"], "score": round(c["score"], 4)}
-        for c in retrieved_chunks
+        for c in relevant_chunks
     ]
 
     async def event_stream():
