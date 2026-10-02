@@ -77,7 +77,7 @@ function handleComposerKey(e) {
   }
 }
 
-
+// Sends the user message to the backend and streams the assistant's response back to the frontend
 async function sendMessage() {
   const text = userInput.value.trim()
   if (!text || isStreaming.value) return
@@ -96,9 +96,10 @@ async function sendMessage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: selectedModel.value,
-        messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
-      }),
+      model: selectedModel.value,
+      prompt_template: promptTemplate.value,
+      messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
+    }),
     })
 
     const reader = response.body.getReader()
@@ -139,7 +140,7 @@ async function sendMessage() {
     isStreaming.value = false
   }
 }
-
+//---------------------------------------------
 
 // New function to handle file uploads for RAG
 
@@ -277,6 +278,13 @@ async function deleteDocument(filename) {
       </button>
     </div>
   </template>
+
+  <div v-if="activeTab === 'settings'" class="settings-panel">
+      <h3>⚙️ RAG Prompt Template</h3>
+      <p class="settings-hint">Must include <code>{context}</code> and <code>{question}</code> placeholders.</p>
+      <textarea v-model="promptTemplate" class="prompt-textarea" rows="8"></textarea>
+      <button class="reset-button" @click="resetPromptTemplate">Reset to default</button>
+    </div>
     
   </div>
 </template>
@@ -460,7 +468,6 @@ async function deleteDocument(filename) {
 .bubble :deep(tbody tr:nth-child(even) td) {
   background: rgba(255, 255, 255, 0.03);
 }
-
 
 /* New RAG documents panel styles */
 
