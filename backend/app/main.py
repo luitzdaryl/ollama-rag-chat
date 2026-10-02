@@ -64,22 +64,28 @@ async def list_models():
     return [m["name"] for m in data.get("models", [])]
 
 # This function builds a prompt for the RAG model, combining the user's question with the retrieved context chunks from the vector store.
-def build_rag_prompt(question: str, retrieved_chunks: list[dict]) -> str:
+DEFAULT_RAG_TEMPLATE = (
+    "Answer the question using ONLY the context below. "
+    "If the context doesn't contain the answer, say you don't know — "
+    "do not make up information.\n\n"
+    "Context:\n{context}\n\n"
+    "Question: {question}"
+)
+
+def build_rag_prompt(question: str, retrieved_chunks: list[dict], template: str | None = None) -> str:
     if not retrieved_chunks:
-        return question  # no documents uploaded yet — fall back to a plain question
+        return question
 
-    context_blocks = []
-    for i, chunk in enumerate(retrieved_chunks):
-        context_blocks.append(f"[Source {i+1}: {chunk['filename']}]\n{chunk['text']}")
-    context = "\n\n".join(context_blocks)
-
-    return (
-        "Answer the question using ONLY the context below. "
-        "If the context doesn't contain the answer, say you don't know — "
-        "do not make up information.\n\n"
-        f"Context:\n{context}\n\n"
-        f"Question: {question}"
+    context = "\n\n".join(
+        f"[Source {i+1}: {c['filename']}]\n{c['text']}" for i, c in enumerate(retrieved_chunks)
     )
+
+    template = template or DEFAULT_RAG_TEMPLATE
+    try:
+        return template.format(context=context, question=question)
+    except (KeyError, IndexError):
+        # malformed custom template (missing/mistyped placeholder) — fall back safely
+        return DEFAULT_RAG_TEMPLATE.format(context=context, question=question)
 
 
 # This is the main chat endpoint that streams responses from Ollama to the frontend
