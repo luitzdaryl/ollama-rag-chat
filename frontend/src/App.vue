@@ -12,6 +12,7 @@ const composerEl = ref(null) // reference to the <textarea> DOM element
 
 // New refsfor RAG 
 
+const activeTab = ref('chat') // 'chat' | 'documents' | 'settings'
 const documents = ref([])
 const uploading = ref(false)
 const uploadError = ref('')
@@ -177,27 +178,37 @@ async function deleteDocument(filename) {
       <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
     </select>
 
+    <!-- Active Tab -->
+
+    <div class="tabs">
+      <button :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">💬 Chat</button>
+      <button :class="{ active: activeTab === 'documents' }" @click="activeTab = 'documents'">📄 Documents</button>
+      <button :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'">⚙️ Settings</button>
+    </div>
+
     <!-- New RAG documents panel -->
 
+    <div v-if="activeTab === 'documents'" class="documents-panel">
      <div class="documents-panel">
-  <div class="documents-header">
-    <h3>📄 Documents</h3>
-    <label class="upload-button">
-      {{ uploading ? 'Uploading...' : '+ Upload' }}
-      <input type="file" @change="handleFileUpload" :disabled="uploading" hidden />
-    </label>
-  </div>
+        <div class="documents-header">
+          <h3>📄 Documents</h3>
+          <label class="upload-button">
+            {{ uploading ? 'Uploading...' : '+ Upload' }}
+            <input type="file" @change="handleFileUpload" :disabled="uploading" hidden />
+          </label>
+        </div>
 
-  <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
+        <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
 
-  <ul v-if="documents.length" class="document-list">
-    <li v-for="doc in documents" :key="doc" class="document-item">
-      <span class="document-name">{{ doc }}</span>
-      <button class="delete-button" @click="deleteDocument(doc)" title="Remove">✕</button>
-    </li>
-  </ul>
-  <p v-else class="no-documents">No documents uploaded yet — chat will answer from the model's general knowledge only.</p>
-</div>
+        <ul v-if="documents.length" class="document-list">
+          <li v-for="doc in documents" :key="doc" class="document-item">
+            <span class="document-name">{{ doc }}</span>
+            <button class="delete-button" @click="deleteDocument(doc)" title="Remove">✕</button>
+          </li>
+        </ul>
+        <p v-else class="no-documents">No documents uploaded yet — chat will answer from the model's general knowledge only.</p>
+      </div>
+    </div>
     
 
     <div class="chat-window">
