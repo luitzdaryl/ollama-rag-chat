@@ -285,9 +285,9 @@ async function deleteDocument(filename) {
 }
 
 /* Wrapper controls WHICH SIDE the bubble sits on */
-.message-wrap { display: flex; }
-.message-wrap--user { justify-content: flex-end; }
-.message-wrap--assistant { justify-content: flex-start; }
+.message-wrap { display: flex; flex-direction: column;}
+.message-wrap--user { align-items: flex-end; }
+.message-wrap--assistant { align-items: flex-start; }
 
 /* Bubble itself doesn't care about side, just its own look */
 .bubble {
@@ -509,6 +509,7 @@ async function deleteDocument(filename) {
 
 .sources-expander {
   margin-top: 4px;
+  max-width: 78%;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
 }
