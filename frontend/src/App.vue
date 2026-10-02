@@ -210,7 +210,7 @@ async function deleteDocument(filename) {
       </div>
     </div>
     
-
+    <template v-if="activeTab === 'chat'">
     <div class="chat-window">
       <div
         v-for="(msg, i) in messages"
@@ -255,6 +255,7 @@ async function deleteDocument(filename) {
         </svg>
       </button>
     </div>
+  </template>
     
   </div>
 </template>
@@ -526,5 +527,21 @@ async function deleteDocument(filename) {
 }
 .sources-list { margin: 4px 0 0; padding-left: 18px; }
 .source-score { opacity: 0.7; }
+
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.tabs button {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.tabs button.active {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border-color: var(--color-accent);
+}
 
 </style>
