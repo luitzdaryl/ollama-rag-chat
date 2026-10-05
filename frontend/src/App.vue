@@ -23,19 +23,14 @@ const theme = ref(localStorage.getItem('theme') || 'dark')
 
 // System Prompt Template for RAG — stored in localStorage so users can customize it and have it persist across sessions
 
-const DEFAULT_PROMPT_TEMPLATE = `Answer the question using ONLY the context below. If the context doesn't contain the answer, say you don't know — do not make up information.
+const DEFAULT_INSTRUCTION = `Answer the question using ONLY the context below. If the context doesn't contain the answer, say you don't know — do not make up information.`
 
-Context:
-{context}
+const promptInstruction = ref(localStorage.getItem('ragInstruction') || DEFAULT_INSTRUCTION)
 
-Question: {question}`
+watch(promptInstruction, (val) => localStorage.setItem('ragInstruction', val))
 
-const promptTemplate = ref(localStorage.getItem('promptTemplate') || DEFAULT_PROMPT_TEMPLATE)
-
-watch(promptTemplate, (val) => localStorage.setItem('promptTemplate', val))
-
-function resetPromptTemplate() {
-  promptTemplate.value = DEFAULT_PROMPT_TEMPLATE
+function resetPromptInstruction() {
+  promptInstruction.value = DEFAULT_INSTRUCTION
 }
 //------------------------------------------------
 
