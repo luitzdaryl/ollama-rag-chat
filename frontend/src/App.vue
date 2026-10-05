@@ -275,11 +275,11 @@ async function deleteDocument(filename) {
   </template>
 
   <div v-if="activeTab === 'settings'" class="settings-panel">
-      <h3>⚙️ RAG Prompt Template</h3>
-      <p class="settings-hint">Must include <code>{context}</code> and <code>{question}</code> placeholders.</p>
-      <textarea v-model="promptTemplate" class="prompt-textarea" rows="8"></textarea>
-      <button class="reset-button" @click="resetPromptTemplate">Reset to default</button>
-    </div>
+  <h3>⚙️ RAG Instructions</h3>
+  <p class="settings-hint">Customize how the assistant should behave when answering from your uploaded documents.</p>
+  <textarea v-model="promptInstruction" class="prompt-textarea" rows="6"></textarea>
+  <button class="reset-button" @click="resetPromptInstruction">Reset to default</button>
+</div>
     
   </div>
 </template>
