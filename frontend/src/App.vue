@@ -92,7 +92,7 @@ async function sendMessage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
       model: selectedModel.value,
-      prompt_template: promptTemplate.value,
+      prompt_instruction: promptInstruction.value,
       messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
     }),
     })
