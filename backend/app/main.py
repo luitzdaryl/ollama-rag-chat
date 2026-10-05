@@ -92,13 +92,13 @@ async def chat(request: Request):
     body = await request.json()
     model = body.get("model")
     messages = body.get("messages", [])
+    prompt_instruction = body.get("prompt_instruction") 
 
     if not messages:
         raise HTTPException(status_code=400, detail="No messages provided")
 
     last_user_message = messages[-1]["content"]
 
-    # Retrieval step
     question_vector = embed_text(last_user_message)
     results = search(question_vector, top_k=5)
     relevant_chunks = [
@@ -108,7 +108,7 @@ async def chat(request: Request):
     ]
 
     augmented_messages = messages[:-1] + [
-        {"role": "user", "content": build_rag_prompt(last_user_message, relevant_chunks, prompt_template)}
+        {"role": "user", "content": build_rag_prompt(last_user_message, relevant_chunks, prompt_instruction)}
     ]
 
     sources = [
