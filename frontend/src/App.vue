@@ -10,12 +10,15 @@ const messages = ref([])
 const isStreaming = ref(false)
 const composerEl = ref(null) // reference to the <textarea> DOM element
 
-// New refsfor RAG 
+// New refs for RAG 
 
 const activeTab = ref('chat') // 'chat' | 'documents' | 'settings'
 const documents = ref([])
 const uploading = ref(false)
 const uploadError = ref('')
+
+const useKnowledgeBase = ref(localStorage.getItem('useKnowledgeBase') !== 'false') // defaults to true
+watch(useKnowledgeBase, (val) => localStorage.setItem('useKnowledgeBase', val))
 
 const theme = ref(localStorage.getItem('theme') || 'dark')
 
