@@ -259,6 +259,10 @@ async function deleteDocument(filename) {
         </details>
       </div>
     </div>
+    
+    <div class="mode-indicator">
+      {{ useKnowledgeBase ? '📚 Using your documents' : '💭 Model knowledge only' }}
+    </div>
 
     <div class="composer">
       <textarea
@@ -633,5 +637,55 @@ async function deleteDocument(filename) {
   cursor: pointer;
 }
 .reset-button:hover { border-color: var(--color-accent); }
+
+
+/* Mode indicator styles */
+
+.toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: 24px;
+  transition: background 0.2s;
+}
+.switch-slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 2px;
+  background: var(--color-text-secondary);
+  border-radius: 50%;
+  transition: transform 0.2s, background 0.2s;
+}
+.switch input:checked + .switch-slider { background: var(--color-accent); border-color: var(--color-accent); }
+.switch input:checked + .switch-slider::before { transform: translateX(18px); background: white; }
+
+.mode-indicator {
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
+  padding: 0 4px;
+  margin-top: 8px;
+}
 
 </style>
