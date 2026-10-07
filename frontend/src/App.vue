@@ -567,4 +567,55 @@ async function deleteDocument(filename) {
   border-color: var(--color-accent);
 }
 
+/* Settings panel styles */
+
+.settings-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px 20px;
+}
+
+.settings-panel h3 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.settings-hint {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+  margin: 0 0 12px;
+}
+
+.prompt-textarea {
+  width: 100%;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.prompt-textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.reset-button {
+  margin-top: 10px;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.reset-button:hover { border-color: var(--color-accent); }
+
 </style>

@@ -92,20 +92,23 @@ async def chat(request: Request):
     body = await request.json()
     model = body.get("model")
     messages = body.get("messages", [])
-    prompt_instruction = body.get("prompt_instruction") 
+    prompt_instruction = body.get("prompt_instruction")
+    use_knowledge_base = body.get("use_knowledge_base", True)  # ON by default
 
     if not messages:
         raise HTTPException(status_code=400, detail="No messages provided")
 
     last_user_message = messages[-1]["content"]
 
-    question_vector = embed_text(last_user_message)
-    results = search(question_vector, top_k=5)
-    relevant_chunks = [
-        {"filename": r.payload["filename"], "text": r.payload["text"], "score": r.score}
-        for r in results
-        if r.score >= RELEVANCE_THRESHOLD
-    ]
+    relevant_chunks = []
+    if use_knowledge_base:
+        question_vector = embed_text(last_user_message)
+        results = search(question_vector, top_k=5)
+        relevant_chunks = [
+            {"filename": r.payload["filename"], "text": r.payload["text"], "score": r.score}
+            for r in results
+            if r.score >= RELEVANCE_THRESHOLD
+        ]
 
     augmented_messages = messages[:-1] + [
         {"role": "user", "content": build_rag_prompt(last_user_message, relevant_chunks, prompt_instruction)}
