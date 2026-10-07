@@ -279,12 +279,23 @@ async function deleteDocument(filename) {
     </div>
   </template>
 
-  <div v-if="activeTab === 'settings'" class="settings-panel">
-  <h3>⚙️ RAG Instructions</h3>
-  <p class="settings-hint">Customize how the assistant should behave when answering from your uploaded documents.</p>
-  <textarea v-model="promptInstruction" class="prompt-textarea" rows="6"></textarea>
-  <button class="reset-button" @click="resetPromptInstruction">Reset to default</button>
-</div>
+      <div v-if="activeTab === 'settings'" class="settings-panel">
+      <div class="toggle-row">
+        <div>
+          <h3>📚 Use Knowledge Base</h3>
+          <p class="settings-hint">When off, the assistant answers from its own knowledge only — no document retrieval.</p>
+        </div>
+        <label class="switch">
+          <input type="checkbox" v-model="useKnowledgeBase" />
+          <span class="switch-slider"></span>
+        </label>
+      </div>
+
+      <h3>⚙️ RAG Instructions</h3>
+      <p class="settings-hint">Customize how the assistant should behave when answering from your uploaded documents.</p>
+      <textarea v-model="promptInstruction" class="prompt-textarea" rows="6"></textarea>
+      <button class="reset-button" @click="resetPromptInstruction">Reset to default</button>
+    </div>
     
   </div>
 </template>
