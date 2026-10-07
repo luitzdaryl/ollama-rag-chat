@@ -93,9 +93,11 @@ async function sendMessage() {
     const response = await fetch(`${API_BASE}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+
       body: JSON.stringify({
       model: selectedModel.value,
       prompt_instruction: promptInstruction.value,
+      use_knowledge_base: useKnowledgeBase.value,
       messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
     }),
     })
