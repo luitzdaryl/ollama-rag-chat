@@ -396,6 +396,7 @@ async function handleChatClick(e) {
   background: var(--color-bubble-user);
   color: var(--color-bubble-user-text);
   border-bottom-right-radius: 4px; /* small "tail" corner, like iMessage/ChatGPT */
+  white-space: pre-wrap;
 }
 
 .bubble--assistant {
