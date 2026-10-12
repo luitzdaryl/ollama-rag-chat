@@ -1,7 +1,7 @@
 <script setup>
 import { ref, reactive, onMounted, watch, nextTick } from 'vue'
-import { marked } from 'marked'
-marked.setOptions({ breaks: true, gfm: true })
+
+import { renderMarkdown } from './markdown.js'
 
 const models = ref([])
 const selectedModel = ref('')
