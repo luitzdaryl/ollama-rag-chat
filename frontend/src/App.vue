@@ -86,7 +86,11 @@ async function sendMessage() {
   userInput.value = ''
   await nextTick(autoResizeComposer)
 
-  const assistantMessage = reactive({ role: 'assistant', content: '', sources: [] })
+  const assistantMessage = reactive({
+  role: 'assistant', content: '', sources: [],
+  timestamp: null, elapsed: '', modelName: selectedModel.value,
+})
+
   messages.value.push(assistantMessage)
 
   isStreaming.value = true
