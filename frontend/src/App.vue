@@ -383,12 +383,12 @@ async function handleChatClick(e) {
 .message-wrap--assistant { align-items: flex-start; }
 
 /* Bubble itself doesn't care about side, just its own look */
+
 .bubble {
   max-width: 78%;
   padding: 10px 14px;
   border-radius: 16px;
   line-height: 1.5;
-  white-space: pre-wrap;
   word-break: break-word;
 }
 
