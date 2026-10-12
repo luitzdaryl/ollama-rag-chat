@@ -80,7 +80,9 @@ async function sendMessage() {
   const text = userInput.value.trim()
   if (!text || isStreaming.value) return
 
-  messages.value.push({ role: 'user', content: text })
+  const now = Date.now()
+  messages.value.push({ role: 'user', content: text, timestamp: now })
+
   userInput.value = ''
   await nextTick(autoResizeComposer)
 
