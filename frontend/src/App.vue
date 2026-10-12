@@ -403,6 +403,7 @@ async function handleChatClick(e) {
   background: var(--color-surface-alt);
   color: var(--color-text);
   border-bottom-left-radius: 4px;
+  white-space: normal;
 }
 
 /* Composer: rounded pill container, textarea + circular send button inside */
