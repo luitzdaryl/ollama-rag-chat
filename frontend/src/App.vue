@@ -269,13 +269,21 @@ async function handleChatClick(e) {
         class="message-wrap"
         :class="msg.role === 'user' ? 'message-wrap--user' : 'message-wrap--assistant'">
         <div class="bubble" :class="msg.role === 'user' ? 'bubble--user' : 'bubble--assistant'">
-          <template v-if="msg.role === 'assistant'">
-            <span v-html="marked.parse(msg.content)"></span>
-          </template>
-          <template v-else>
-            {{ msg.content }}
-          </template>
-        </div>
+        <template v-if="msg.role === 'assistant'">
+          <div v-html="renderMarkdown(msg.content)"></div>
+        </template>
+        <template v-else>
+          {{ msg.content }}
+        </template>
+      </div>
+
+      <div v-if="msg.timestamp" class="message-meta">
+        <span>{{ fmtTime(msg.timestamp) }}</span>
+        <template v-if="msg.role === 'assistant' && msg.elapsed">
+          <span>·</span><span>{{ msg.elapsed }}</span>
+          <span>·</span><span>{{ msg.modelName }}</span>
+        </template>
+      </div>
 
         <!-- Show sources if available -->
         <details v-if="msg.sources && msg.sources.length" class="sources-expander">
