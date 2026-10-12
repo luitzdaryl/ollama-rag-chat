@@ -2,7 +2,7 @@
   /* Dark theme (default) */
   --color-bg: #111111;
   --color-surface: #1e1e1e;
-  --color-surface-alt: #3c3c3c;
+  --color-surface-alt: #1e1e1e; /* was #3c3c3c */
   --color-border: #3c3c3c;
   --color-text: #f0f0f0;
   --color-text-secondary: #a0a0a0;

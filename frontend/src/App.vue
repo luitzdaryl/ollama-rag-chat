@@ -473,7 +473,7 @@ async function handleChatClick(e) {
 }
 
 .bubble :deep(pre) {
-  background:#1e1e1e;
+  background:#161616;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 12px;
