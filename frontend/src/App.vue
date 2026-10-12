@@ -477,13 +477,28 @@ async function handleChatClick(e) {
 }
 
 .bubble :deep(pre) {
-  background: rgba(0, 0, 0, 0.3);
+  background: #1e1e2e;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 12px;
   overflow-x: auto;
-  margin: 8px 0;
+  margin: 0;
 }
+.bubble :deep(.code-block) { position: relative; margin: 8px 0; }
+.bubble :deep(.code-copy-btn) {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #c9d1d9;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.bubble :deep(.code-block:hover .code-copy-btn) { opacity: 1; }
 
 .bubble :deep(pre code) {
   background: none;
