@@ -469,15 +469,11 @@ async function handleChatClick(e) {
 .bubble :deep(p:last-child) { margin-bottom: 0; }
 
 .bubble :deep(code) {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.85em;
-  background: rgba(0, 0, 0, 0.25);
-  padding: 2px 6px;
-  border-radius: 5px;
+  background: rgba(128, 128, 128, 0.2);   /* was rgba(0,0,0,0.25) */
 }
 
 .bubble :deep(pre) {
-  background: #1e1e2e;
+  background: #111111;
   border: 1px solid var(--color-border);
   border-radius: 10px;
   padding: 12px;
@@ -535,7 +531,7 @@ async function handleChatClick(e) {
 }
 
 .bubble :deep(tbody tr:nth-child(even) td) {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(128, 128, 128, 0.08);  /* was rgba(255,255,255,0.03), invisible on light */
 }
 
 .bubble :deep(h1), .bubble :deep(h2), .bubble :deep(h3) { margin: 12px 0 6px; font-weight: 700; line-height: 1.3; }

@@ -17,16 +17,15 @@
 [data-theme='light'] {
   --color-bg: #f8f8fa;
   --color-surface: #ffffff;
-  --color-surface-alt: #121010;
+  --color-surface-alt: #f0f0f3;   /* was #121010 */
   --color-border: #dddddd;
   --color-text: #111111;
   --color-text-secondary: #555555;
   --color-accent: #ff9a00;
   --color-accent-text: #111111;
 
-   /* ...existing vars... */
-   --color-bubble-user: var(--color-accent);
-   --color-bubble-user-text: #ffffff;
+  --color-bubble-user: var(--color-accent);
+  --color-bubble-user-text: #ffffff;
 }
 
 * {
