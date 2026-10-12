@@ -538,7 +538,6 @@ async function handleChatClick(e) {
   background: rgba(255, 255, 255, 0.03);
 }
 
-
 .bubble :deep(h1), .bubble :deep(h2), .bubble :deep(h3) { margin: 12px 0 6px; font-weight: 700; line-height: 1.3; }
 .bubble :deep(h1) { font-size: 1.15rem; }
 .bubble :deep(h2) { font-size: 1.05rem; }
