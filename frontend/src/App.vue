@@ -538,6 +538,26 @@ async function handleChatClick(e) {
   background: rgba(255, 255, 255, 0.03);
 }
 
+
+.bubble :deep(h1), .bubble :deep(h2), .bubble :deep(h3) { margin: 12px 0 6px; font-weight: 700; line-height: 1.3; }
+.bubble :deep(h1) { font-size: 1.15rem; }
+.bubble :deep(h2) { font-size: 1.05rem; }
+.bubble :deep(h3) { font-size: 0.98rem; }
+.bubble :deep(blockquote) { border-left: 3px solid var(--color-accent); margin: 8px 0; padding: 2px 12px; color: var(--color-text-secondary); }
+.bubble :deep(hr) { border: none; border-top: 1px solid var(--color-border); margin: 12px 0; }
+.bubble :deep(li) { margin: 3px 0; }
+.bubble :deep(table) { display: block; overflow-x: auto; max-width: 100%; }
+.bubble :deep(.katex-display) { overflow-x: auto; overflow-y: hidden; margin: 0.8em 0; }
+
+.message-meta {
+  display: flex;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+  margin-top: 3px;
+  padding: 0 4px;
+}
+
 /* New RAG documents panel styles */
 
 .documents-panel {
