@@ -185,6 +185,27 @@ async function deleteDocument(filename) {
   await loadDocuments()
 }
 
+// Formats a timestamp into a human-readable time string (e.g., "3:45 PM")
+
+function fmtTime(ts) {
+  return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+// One listener on the chat window handles every code block's Copy button,
+// including ones rendered later — works even though v-html re-renders constantly.
+async function handleChatClick(e) {
+  const btn = e.target.closest('.code-copy-btn')
+  if (!btn) return
+  const code = btn.parentElement.querySelector('pre code')
+  try {
+    await navigator.clipboard.writeText(code.textContent)
+    btn.textContent = 'Copied!'
+  } catch {
+    btn.textContent = 'Failed'
+  }
+  setTimeout(() => { btn.textContent = 'Copy' }, 1500)
+}
+
 </script>
 
 <template>
