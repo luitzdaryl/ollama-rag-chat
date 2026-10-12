@@ -143,8 +143,10 @@ async function sendMessage() {
     assistantMessage.content = 'Error: could not reach the backend.'
     console.error(err)
   } finally {
-    isStreaming.value = false
-  }
+  assistantMessage.timestamp = Date.now()
+  assistantMessage.elapsed = ((Date.now() - now) / 1000).toFixed(1) + 's'
+  isStreaming.value = false
+}
 }
 //---------------------------------------------
 
