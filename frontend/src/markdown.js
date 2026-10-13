@@ -57,7 +57,7 @@ marked.use(
 
 // throwOnError: false matters while streaming — a half-written formula
 // renders as plain red text instead of throwing and breaking the message.
-marked.use(markedKatex({ throwOnError: false }))
+marked.use(markedKatex({ throwOnError: false, nonStandard: true }))
 
 // The katex extension only understands $...$ and $$...$$, but many models
 // emit \( ... \) and \[ ... \]. Convert them, skipping fenced code blocks.
