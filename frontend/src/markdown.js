@@ -73,13 +73,36 @@ function normalizeMathDelimiters(text) {
     .join('')
 }
 
+// Every token re-renders every message in the chat. Without a cache, a long
+// conversation would re-run marked + highlighting + KaTeX + sanitizing on all
+// old messages for each streamed token. This is a small LRU: a hit moves the
+// entry to "newest", so old messages stay cached and stale streaming
+// intermediates age out first.
+const renderCache = new Map()
+const CACHE_LIMIT = 500
+
 export function renderMarkdown(text) {
   if (!text) return ''
+
+  const cached = renderCache.get(text)
+  if (cached !== undefined) {
+    renderCache.delete(text)
+    renderCache.set(text, cached)
+    return cached
+  }
+
   const html = marked.parse(normalizeMathDelimiters(text))
-  // Wrap each code block and add a copy button inside the HTML itself.
-  // Safe to do with plain replace: code content is already HTML-escaped,
-  // so a literal "<pre>" can't appear inside it.
-  return html
+  const wrapped = html
     .replace(/<pre>/g, '<div class="code-block"><button type="button" class="code-copy-btn">Copy</button><pre>')
     .replace(/<\/pre>/g, '</pre></div>')
+
+  // Sanitize last, on the final HTML. Model output can contain raw HTML,
+  // and uploaded documents flow into answers, so treat it as untrusted.
+  const safe = DOMPurify.sanitize(wrapped)
+
+  renderCache.set(text, safe)
+  if (renderCache.size > CACHE_LIMIT) {
+    renderCache.delete(renderCache.keys().next().value)
+  }
+  return safe
 }
