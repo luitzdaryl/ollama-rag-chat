@@ -1,42 +1,39 @@
 <script setup>
-import { ref, reactive, onMounted, watch, nextTick } from 'vue'
-
+import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { renderMarkdown } from './markdown.js'
 
+const API_BASE = 'http://localhost:8000'
+
+// Custom directive: <input v-focus /> focuses the element when it appears
+const vFocus = { mounted: (el) => el.focus() }
+
+/* ───────── Core UI state ───────── */
 const models = ref([])
 const selectedModel = ref('')
-const userInput = ref('')
-const messages = ref([])
-const isStreaming = ref(false)
-const composerEl = ref(null) // reference to the <textarea> DOM element
-
-// New refs for RAG 
-
 const activeTab = ref('chat') // 'chat' | 'documents' | 'settings'
+const userInput = ref('')
+const isStreaming = ref(false)
+const composerEl = ref(null)
+const chatWindowEl = ref(null)
+
+/* ───────── Documents (RAG) ───────── */
 const documents = ref([])
 const uploading = ref(false)
 const uploadError = ref('')
 
-const useKnowledgeBase = ref(localStorage.getItem('useKnowledgeBase') !== 'false') // defaults to true
-watch(useKnowledgeBase, (val) => localStorage.setItem('useKnowledgeBase', val))
-
-const theme = ref(localStorage.getItem('theme') || 'dark')
-
-//------------------------------------------------
-
-// System Prompt Template for RAG — stored in localStorage so users can customize it and have it persist across sessions
+/* ───────── Settings (persisted) ───────── */
+const useKnowledgeBase = ref(localStorage.getItem('useKnowledgeBase') !== 'false')
+watch(useKnowledgeBase, (v) => localStorage.setItem('useKnowledgeBase', v))
 
 const DEFAULT_INSTRUCTION = `Answer the question using ONLY the context below. If the context doesn't contain the answer, say you don't know — do not make up information.`
-
 const promptInstruction = ref(localStorage.getItem('ragInstruction') || DEFAULT_INSTRUCTION)
-
-watch(promptInstruction, (val) => localStorage.setItem('ragInstruction', val))
-
+watch(promptInstruction, (v) => localStorage.setItem('ragInstruction', v))
 function resetPromptInstruction() {
   promptInstruction.value = DEFAULT_INSTRUCTION
 }
-//------------------------------------------------
 
+/* ───────── Theme ───────── */
+const theme = ref(localStorage.getItem('theme') || 'dark')
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', theme.value)
   localStorage.setItem('theme', theme.value)
@@ -46,20 +43,128 @@ function toggleTheme() {
 }
 watch(theme, applyTheme)
 
-const API_BASE = 'http://localhost:8000'
+/* ───────── Chats: state + persistence ───────── */
+const CHATS_KEY = 'ragChat.chats'
+const ACTIVE_KEY = 'ragChat.activeChatId'
 
-// onMounted is a Vue lifecycle hook that runs after the component is mounted to the DOM
+function loadChats() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(CHATS_KEY) || '[]')
+    return Array.isArray(saved) ? saved : []
+  } catch {
+    return []
+  }
+}
 
-onMounted(async () => {
-  applyTheme()
-  const res = await fetch(`${API_BASE}/api/models`)
-  models.value = await res.json()
-  if (models.value.length > 0) selectedModel.value = models.value[0]
-  await loadDocuments()
-})
-//------------------------------------------------
+function saveChats() {
+  try {
+    localStorage.setItem(CHATS_KEY, JSON.stringify(chats.value))
+  } catch (e) {
+    console.warn('Could not save chats:', e) // e.g. storage quota exceeded
+  }
+}
 
-// Grows the textarea as the user types, capped at 160px
+const chats = ref(loadChats())
+const activeChatId = ref(localStorage.getItem(ACTIVE_KEY) || '')
+const activeChat = computed(() => chats.value.find((c) => c.id === activeChatId.value))
+
+// Save on any change, but NOT during streaming: the deep watcher would
+// otherwise re-serialize every chat on every single token. We save explicitly
+// when the stream finishes instead.
+watch(chats, () => { if (!isStreaming.value) saveChats() }, { deep: true })
+watch(activeChatId, (id) => localStorage.setItem(ACTIVE_KEY, id))
+
+function createChat() {
+  // Don't pile up empty chats — reuse the current one if it's still empty
+  if (activeChat.value && activeChat.value.messages.length === 0) {
+    activeTab.value = 'chat'
+    return
+  }
+  const chat = { id: `chat_${Date.now()}`, title: 'New Chat', messages: [], createdAt: Date.now() }
+  chats.value.unshift(chat)
+  activeChatId.value = chat.id
+  activeTab.value = 'chat'
+}
+
+function selectChat(id) {
+  cancelEdit()
+  activeChatId.value = id
+  activeTab.value = 'chat'
+}
+
+function deleteChat(id) {
+  const chat = chats.value.find((c) => c.id === id)
+  if (!chat) return
+  if (!window.confirm(`Delete "${chat.title}"? This can't be undone.`)) return
+
+  const wasActive = id === activeChatId.value
+  chats.value = chats.value.filter((c) => c.id !== id)
+  if (!chats.value.length) createChat()
+  else if (wasActive) activeChatId.value = chats.value[0].id
+}
+
+// First launch, or saved active id no longer exists
+if (!chats.value.length) createChat()
+else if (!activeChat.value) activeChatId.value = chats.value[0].id
+
+/* ───────── Rename ───────── */
+const renamingChatId = ref(null)
+const renameText = ref('')
+
+function startRename(chat) {
+  renamingChatId.value = chat.id
+  renameText.value = chat.title
+}
+function confirmRename() {
+  // Guard: Enter, then the input unmounting and firing blur, would run this twice
+  if (renamingChatId.value === null) return
+  const chat = chats.value.find((c) => c.id === renamingChatId.value)
+  const name = renameText.value.trim()
+  if (chat && name) chat.title = name
+  renamingChatId.value = null
+}
+function cancelRename() {
+  renamingChatId.value = null
+}
+
+/* ───────── Edit + resend a user message ───────── */
+const editingIndex = ref(null)
+const editingContent = ref('')
+
+function startEdit(index) {
+  editingIndex.value = index
+  editingContent.value = activeChat.value.messages[index].content
+}
+function cancelEdit() {
+  editingIndex.value = null
+  editingContent.value = ''
+}
+async function saveEdit(index) {
+  const text = editingContent.value.trim()
+  if (!text || isStreaming.value) return
+  const chat = activeChat.value
+  // Everything from the edited message onward is discarded, then re-asked
+  chat.messages = chat.messages.slice(0, index)
+  if (index === 0) chat.title = 'New Chat' // so the title regenerates from the new text
+  cancelEdit()
+  await sendMessage(text)
+}
+
+/* ───────── Scrolling ───────── */
+// Called right after state changes, BEFORE Vue updates the DOM, so the
+// "was the user at the bottom?" measurement is from before the new content.
+// This stops us yanking the view down if someone scrolled up to read.
+async function scrollToBottom(force = false) {
+  const el = chatWindowEl.value
+  const wasNearBottom = el ? el.scrollHeight - el.scrollTop - el.clientHeight < 150 : true
+  await nextTick()
+  const target = chatWindowEl.value
+  if (target && (force || wasNearBottom)) target.scrollTop = target.scrollHeight
+}
+watch(activeChatId, () => scrollToBottom(true))
+watch(activeTab, (tab) => { if (tab === 'chat') scrollToBottom(true) })
+
+/* ───────── Composer helpers ───────── */
 function autoResizeComposer() {
   const el = composerEl.value
   if (!el) return
@@ -67,7 +172,6 @@ function autoResizeComposer() {
   el.style.height = Math.min(el.scrollHeight, 160) + 'px'
 }
 
-// Enter sends, Shift+Enter makes a new line
 function handleComposerKey(e) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
@@ -75,55 +179,73 @@ function handleComposerKey(e) {
   }
 }
 
-// Sends the user message to the backend and streams the assistant's response back to the frontend
-async function sendMessage() {
-  const text = userInput.value.trim()
+/* ───────── Sending + streaming ───────── */
+async function sendMessage(overrideText) {
+  // overrideText is only a string when called from saveEdit; a click handler
+  // would pass an event object, so check the type rather than truthiness.
+  const text = (typeof overrideText === 'string' ? overrideText : userInput.value).trim()
   if (!text || isStreaming.value) return
 
-  const now = Date.now()
-  messages.value.push({ role: 'user', content: text, timestamp: now })
+  // Capture the chat once. If the user switches chats mid-stream, this
+  // response must still land in the chat it was asked in.
+  const chat = activeChat.value
+  const startedAt = Date.now()
 
-  userInput.value = ''
-  await nextTick(autoResizeComposer)
+  chat.messages.push({ role: 'user', content: text, timestamp: startedAt })
+  if (chat.title === 'New Chat') {
+    chat.title = text.length > 35 ? text.slice(0, 35) + '…' : text
+  }
+  saveChats() // persist the question right away, in case the tab closes mid-answer
+
+  if (typeof overrideText !== 'string') {
+    userInput.value = ''
+    await nextTick(autoResizeComposer)
+  }
+
+  // History to send: skip error bubbles and empty messages
+  const history = chat.messages
+    .filter((m) => !m.isError && m.content)
+    .map((m) => ({ role: m.role, content: m.content }))
 
   const assistantMessage = reactive({
-  role: 'assistant', content: '', sources: [],
-  timestamp: null, elapsed: '', modelName: selectedModel.value,
-})
-
-  messages.value.push(assistantMessage)
-
+    role: 'assistant',
+    content: '',
+    sources: [],
+    timestamp: null, // set when streaming finishes; the meta line appears then
+    elapsed: '',
+    modelName: selectedModel.value,
+    isError: false,
+  })
+  chat.messages.push(assistantMessage)
+  scrollToBottom(true)
   isStreaming.value = true
 
   try {
     const response = await fetch(`${API_BASE}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-
       body: JSON.stringify({
-      model: selectedModel.value,
-      prompt_instruction: promptInstruction.value,
-      use_knowledge_base: useKnowledgeBase.value,
-      messages: messages.value.slice(0, -1).map(m => ({ role: m.role, content: m.content })),
-    }),
+        model: selectedModel.value,
+        prompt_instruction: promptInstruction.value,
+        use_knowledge_base: useKnowledgeBase.value,
+        messages: history,
+      }),
     })
+    if (!response.ok || !response.body) throw new Error(`Backend returned ${response.status}`)
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
-
     let buffer = ''
     let sourcesParsed = false
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-
       buffer += decoder.decode(value, { stream: true })
 
       if (!sourcesParsed) {
         const newlineIndex = buffer.indexOf('\n')
-        if (newlineIndex === -1) continue  // haven't received the full sources line yet — keep buffering
-
+        if (newlineIndex === -1) continue // sources line not complete yet
         const firstLine = buffer.slice(0, newlineIndex)
         if (firstLine.startsWith('__SOURCES__')) {
           try {
@@ -138,24 +260,29 @@ async function sendMessage() {
 
       assistantMessage.content += buffer
       buffer = ''
+      scrollToBottom()
     }
   } catch (err) {
-    assistantMessage.content = 'Error: could not reach the backend.'
     console.error(err)
+    assistantMessage.isError = true
+    assistantMessage.content =
+      err instanceof TypeError ? 'Error: could not reach the backend.' : `Error: ${err.message}`
   } finally {
-  assistantMessage.timestamp = Date.now()
-  assistantMessage.elapsed = ((Date.now() - now) / 1000).toFixed(1) + 's'
-  isStreaming.value = false
+    assistantMessage.timestamp = Date.now()
+    assistantMessage.elapsed = ((Date.now() - startedAt) / 1000).toFixed(1) + 's'
+    isStreaming.value = false
+    saveChats()
+  }
 }
-}
-//---------------------------------------------
 
-// New function to handle file uploads for RAG
-
+/* ───────── Documents ───────── */
 async function loadDocuments() {
-  const res = await fetch(`${API_BASE}/api/documents`)
-  const data = await res.json()
-  documents.value = data.documents
+  try {
+    const res = await fetch(`${API_BASE}/api/documents`)
+    documents.value = (await res.json()).documents
+  } catch (e) {
+    console.error('Could not load documents:', e)
+  }
 }
 
 async function handleFileUpload(event) {
@@ -167,10 +294,7 @@ async function handleFileUpload(event) {
   try {
     const formData = new FormData()
     formData.append('file', file)
-    const res = await fetch(`${API_BASE}/api/documents/upload`, {
-      method: 'POST',
-      body: formData,
-    })
+    const res = await fetch(`${API_BASE}/api/documents/upload`, { method: 'POST', body: formData })
     if (!res.ok) {
       const err = await res.json()
       throw new Error(err.detail || 'Upload failed')
@@ -180,27 +304,22 @@ async function handleFileUpload(event) {
     uploadError.value = e.message
   } finally {
     uploading.value = false
-    event.target.value = ''  // reset so re-uploading the same filename works
+    event.target.value = '' // so re-uploading the same filename works
   }
 }
 
 async function deleteDocument(filename) {
-  // encodeURIComponent matters here — filenames with spaces or special
-  // characters would otherwise break the URL path
-  await fetch(`${API_BASE}/api/documents/${encodeURIComponent(filename)}`, {
-    method: 'DELETE',
-  })
+  await fetch(`${API_BASE}/api/documents/${encodeURIComponent(filename)}`, { method: 'DELETE' })
   await loadDocuments()
 }
 
-// Formats a timestamp into a human-readable time string (e.g., "3:45 PM")
-
+/* ───────── Small helpers ───────── */
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-// One listener on the chat window handles every code block's Copy button,
-// including ones rendered later — works even though v-html re-renders constantly.
+// One delegated listener handles every code block's Copy button, including
+// ones created later by v-html re-renders.
 async function handleChatClick(e) {
   const btn = e.target.closest('.code-copy-btn')
   if (!btn) return
@@ -214,6 +333,18 @@ async function handleChatClick(e) {
   setTimeout(() => { btn.textContent = 'Copy' }, 1500)
 }
 
+onMounted(async () => {
+  applyTheme()
+  try {
+    const res = await fetch(`${API_BASE}/api/models`)
+    models.value = await res.json()
+    if (models.value.length > 0) selectedModel.value = models.value[0]
+  } catch (e) {
+    console.error('Could not load models:', e)
+  }
+  await loadDocuments()
+  scrollToBottom(true)
+})
 </script>
 
 <template>
