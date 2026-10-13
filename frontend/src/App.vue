@@ -351,15 +351,14 @@ onMounted(async () => {
     <!-- ───── Sidebar: chat list ───── -->
     <aside class="sidebar">
       <button class="new-chat-btn" @click="createChat">＋ New chat</button>
-
+ 
       <div class="chat-list">
         <div
           v-for="chat in chats"
           :key="chat.id"
           class="chat-item"
           :class="{ active: chat.id === activeChatId }"
-          @click="selectChat(chat.id)"
-        >
+          @click="selectChat(chat.id)">
           <input
             v-if="renamingChatId === chat.id"
             v-model="renameText"
@@ -369,8 +368,7 @@ onMounted(async () => {
             @focus="$event.target.select()"
             @keydown.enter="confirmRename"
             @keydown.escape="cancelRename"
-            @blur="confirmRename"
-          />
+            @blur="confirmRename"/>
           <template v-else>
             <span class="chat-title" @dblclick.stop="startRename(chat)">{{ chat.title }}</span>
             <span class="chat-actions">
@@ -381,26 +379,29 @@ onMounted(async () => {
         </div>
       </div>
     </aside>
-
-    <!-- ───── Main area ───── -->
-    <div class="app">
+ 
+    <!-- ───── Top bar (right column only): header + model select + tabs ───── -->
+    <div class="topbar">
       <header class="app-header">
         <h1>Ollama Chat</h1>
         <button class="theme-toggle" @click="toggleTheme">
           {{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}
         </button>
       </header>
-
+ 
       <select class="model-select" v-model="selectedModel">
         <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
       </select>
-
+ 
       <div class="tabs">
         <button :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">💬 Chat</button>
         <button :class="{ active: activeTab === 'documents' }" @click="activeTab = 'documents'">📄 Documents</button>
         <button :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'">⚙️ Settings</button>
       </div>
-
+    </div>
+ 
+    <!-- ───── Content (fills the remaining height) ───── -->
+    <main class="content">
       <!-- Documents tab -->
       <div v-if="activeTab === 'documents'" class="documents-panel">
         <div class="documents-header">
@@ -410,9 +411,9 @@ onMounted(async () => {
             <input type="file" @change="handleFileUpload" :disabled="uploading" hidden />
           </label>
         </div>
-
+ 
         <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
-
+ 
         <ul v-if="documents.length" class="document-list">
           <li v-for="doc in documents" :key="doc" class="document-item">
             <span class="document-name">{{ doc }}</span>
@@ -421,20 +422,19 @@ onMounted(async () => {
         </ul>
         <p v-else class="no-documents">No documents uploaded yet — chat will answer from the model's general knowledge only.</p>
       </div>
-
+ 
       <!-- Chat tab -->
       <template v-if="activeTab === 'chat' && activeChat">
         <div ref="chatWindowEl" class="chat-window" @click="handleChatClick">
           <p v-if="!activeChat.messages.length" class="empty-chat">
             Ask a question about your documents — or switch the knowledge base off in Settings to chat with the model directly.
           </p>
-
+ 
           <div
             v-for="(msg, i) in activeChat.messages"
             :key="i"
             class="message-wrap"
-            :class="msg.role === 'user' ? 'message-wrap--user' : 'message-wrap--assistant'"
-          >
+            :class="msg.role === 'user' ? 'message-wrap--user' : 'message-wrap--assistant'">
             <!-- Editing a user message -->
             <template v-if="editingIndex === i">
               <textarea
@@ -444,21 +444,20 @@ onMounted(async () => {
                 rows="3"
                 @keydown.escape="cancelEdit"
                 @keydown.meta.enter="saveEdit(i)"
-                @keydown.ctrl.enter="saveEdit(i)"
-              ></textarea>
+                @keydown.ctrl.enter="saveEdit(i)"></textarea>
               <div class="edit-actions">
                 <button class="edit-save" @click="saveEdit(i)">Save &amp; send</button>
                 <button class="edit-cancel" @click="cancelEdit">Cancel</button>
               </div>
             </template>
-
+ 
             <!-- Normal display -->
             <template v-else>
               <div class="bubble" :class="msg.role === 'user' ? 'bubble--user' : 'bubble--assistant'">
                 <div v-if="msg.role === 'assistant'" v-html="renderMarkdown(msg.content)"></div>
                 <template v-else>{{ msg.content }}</template>
               </div>
-
+ 
               <div v-if="msg.timestamp" class="message-meta">
                 <span>{{ fmtTime(msg.timestamp) }}</span>
                 <template v-if="msg.role === 'assistant' && msg.elapsed">
@@ -469,10 +468,9 @@ onMounted(async () => {
                   v-if="msg.role === 'user' && !isStreaming"
                   class="edit-msg-btn"
                   title="Edit and resend"
-                  @click="startEdit(i)"
-                >✎ Edit</button>
+                  @click="startEdit(i)">✎ Edit</button>
               </div>
-
+ 
               <details v-if="msg.sources && msg.sources.length" class="sources-expander">
                 <summary>Sources ({{ msg.sources.length }})</summary>
                 <ul class="sources-list">
@@ -484,11 +482,11 @@ onMounted(async () => {
             </template>
           </div>
         </div>
-
+ 
         <div class="mode-indicator">
           {{ useKnowledgeBase ? '📚 Using your documents' : '💭 Model knowledge only' }}
         </div>
-
+ 
         <div class="composer">
           <textarea
             ref="composerEl"
@@ -498,8 +496,7 @@ onMounted(async () => {
             placeholder="Ask something..."
             rows="1"
             class="composer-textarea"
-            :disabled="isStreaming"
-          ></textarea>
+            :disabled="isStreaming"></textarea>
           <button class="send-button" @click="sendMessage()" :disabled="isStreaming || !userInput.trim()">
             <div class="spinner" v-if="isStreaming"></div>
             <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
@@ -508,7 +505,7 @@ onMounted(async () => {
           </button>
         </div>
       </template>
-
+ 
       <!-- Settings tab -->
       <div v-if="activeTab === 'settings'" class="settings-panel">
         <div class="toggle-row">
@@ -521,13 +518,13 @@ onMounted(async () => {
             <span class="switch-slider"></span>
           </label>
         </div>
-
+ 
         <h3>⚙️ RAG Instructions</h3>
         <p class="settings-hint">Customize how the assistant should behave when answering from your uploaded documents.</p>
         <textarea v-model="promptInstruction" class="prompt-textarea" rows="6"></textarea>
         <button class="reset-button" @click="resetPromptInstruction">Reset to default</button>
       </div>
-    </div>
+    </main>
   </div>
 </template>
 
