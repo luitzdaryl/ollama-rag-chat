@@ -2,6 +2,7 @@ import { marked } from 'marked'
 import markedKatex from 'marked-katex-extension'
 import { markedHighlight } from 'marked-highlight'
 import hljs from 'highlight.js/lib/core'
+import DOMPurify from 'dompurify'
 
 import javascript from 'highlight.js/lib/languages/javascript'
 import typescript from 'highlight.js/lib/languages/typescript'
