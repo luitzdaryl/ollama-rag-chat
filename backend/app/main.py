@@ -55,7 +55,7 @@ async def health():
 #     return{"Luitz Daryl": "QUE MIRAS BOBO???"}
 
 @app.get("/api/models")
-async def list_models():
+async def list_models(): 
     """Ask Ollama which models are installed, return just their names."""
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
