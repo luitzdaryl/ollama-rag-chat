@@ -552,12 +552,12 @@ onMounted(async () => {
 }
 
 .chat-window {
+  flex: 1 1 auto;
+  min-height: 0;            /* lets it shrink so the page never grows */
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: 12px;
   padding: 16px;
-  min-height: 500px;
-  max-height: 700px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
