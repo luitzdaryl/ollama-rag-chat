@@ -532,7 +532,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.app { max-width: 1000px; margin: 40px auto; padding: 0 16px; }
+.app { min-width: 0; }
 .app-header { display: flex; align-items: center; justify-content: space-between; }
 
 .theme-toggle {
