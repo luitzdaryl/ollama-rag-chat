@@ -573,6 +573,25 @@ onMounted(async () => {
         <button class="reset-button" @click="resetPromptInstruction">Reset to default</button>
       </div>
     </main>
+
+    <!-- ───── Confirm modal (used by every delete) ───── -->
+    <Teleport to="body">
+      <div
+        v-if="confirmState.open"
+        class="modal-backdrop"
+        tabindex="-1"
+        @click.self="closeConfirm(false)"
+        @keydown.esc="closeConfirm(false)">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <h3 id="confirm-title">{{ confirmState.title }}</h3>
+          <p>{{ confirmState.message }}</p>
+          <div class="modal-actions">
+            <button ref="cancelBtnEl" class="modal-cancel" @click="closeConfirm(false)">Cancel</button>
+            <button class="modal-danger" @click="closeConfirm(true)">{{ confirmState.confirmLabel }}</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
