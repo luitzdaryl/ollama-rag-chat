@@ -7,6 +7,42 @@ const API_BASE = 'http://localhost:8000'
 // Custom directive: <input v-focus /> focuses the element when it appears
 const vFocus = { mounted: (el) => el.focus() }
 
+/* ───────── Confirm modal (used by every delete) ───────── */
+const confirmState = reactive({
+  open: false,
+  title: '',
+  message: '',
+  confirmLabel: 'Delete',
+  resolve: null,
+})
+const cancelBtnEl = ref(null)
+
+// Resolves true if confirmed, false if cancelled (Cancel, backdrop click, Escape)
+function askConfirm({ title, message, confirmLabel = 'Delete' }) {
+  if (confirmState.resolve) confirmState.resolve(false) // never leave an old promise hanging
+  return new Promise((resolve) => {
+    confirmState.title = title
+    confirmState.message = message
+    confirmState.confirmLabel = confirmLabel
+    confirmState.resolve = resolve
+    confirmState.open = true
+  })
+}
+function closeConfirm(result) {
+  const resolve = confirmState.resolve
+  confirmState.open = false
+  confirmState.resolve = null
+  resolve?.(result)
+}
+
+// Focus Cancel by default, so a stray Enter press can never delete anything
+watch(() => confirmState.open, async (open) => {
+  if (open) {
+    await nextTick()
+    cancelBtnEl.value?.focus()
+  }
+})
+
 /* ───────── Core UI state ───────── */
 const models = ref([])
 const selectedModel = ref('')
