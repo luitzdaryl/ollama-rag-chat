@@ -351,6 +351,12 @@ async function handleFileUpload(event) {
 }
 
 async function deleteDocument(filename) {
+  const ok = await askConfirm({
+    title: 'Remove this document?',
+    message: `"${filename}" will be removed from your knowledge base, and the assistant will no longer use it to answer questions. Your chats are not affected.`,
+    confirmLabel: 'Remove',
+  })
+  if (!ok) return
   await fetch(`${API_BASE}/api/documents/${encodeURIComponent(filename)}`, { method: 'DELETE' })
   await loadDocuments()
 }
