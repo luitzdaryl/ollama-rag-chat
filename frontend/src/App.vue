@@ -383,7 +383,7 @@ onMounted(async () => {
     <!-- ───── Top bar (right column only): header + model select + tabs ───── -->
     <div class="topbar">
       <header class="app-header">
-        <h1>Ollama Chat</h1>
+        <h1>Ollama Rag Chat</h1>
         <button class="theme-toggle" @click="toggleTheme">
           {{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}
         </button>
