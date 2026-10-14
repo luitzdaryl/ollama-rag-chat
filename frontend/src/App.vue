@@ -128,12 +128,18 @@ function selectChat(id) {
   activeTab.value = 'chat'
 }
 
-function deleteChat(id) {
+async function deleteChat(id) {
   const chat = chats.value.find((c) => c.id === id)
   if (!chat) return
-  if (!window.confirm(`Delete "${chat.title}"? This can't be undone.`)) return
+
+  const ok = await askConfirm({
+    title: 'Delete this chat?',
+    message: `"${chat.title}" and all of its messages will be permanently deleted. This can't be undone.`,
+  })
+  if (!ok) return
 
   const wasActive = id === activeChatId.value
+  if (wasActive) cancelEdit() // see note below
   chats.value = chats.value.filter((c) => c.id !== id)
   if (!chats.value.length) createChat()
   else if (wasActive) activeChatId.value = chats.value[0].id
