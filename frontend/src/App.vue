@@ -1216,4 +1216,51 @@ onMounted(async () => {
   .sidebar { grid-row: 2; max-height: 140px; margin-bottom: 12px; }
   .content { grid-row: 3; }
 }
+
+
+/* ───────── Confirm modal ───────── */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  outline: none;
+}
+.modal {
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 20px 22px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+}
+.modal h3 { margin: 0 0 8px; font-size: 1.05rem; }
+.modal p {
+  margin: 0 0 18px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  word-break: break-word;
+}
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.modal-cancel,
+.modal-danger {
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+}
+.modal-cancel { background: var(--color-surface-alt); color: var(--color-text); }
+.modal-cancel:hover { border-color: var(--color-accent); }
+.modal-danger { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 600; }
+.modal-danger:hover { background: #b91c1c; border-color: #b91c1c; }
+
 </style>
