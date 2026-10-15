@@ -109,6 +109,7 @@ const activeChat = computed(() => chats.value.find((c) => c.id === activeChatId.
 // when the stream finishes instead.
 watch(chats, () => { if (!isStreaming.value) saveChats() }, { deep: true })
 watch(activeChatId, (id) => localStorage.setItem(ACTIVE_KEY, id))
+watch(selectedModel, (v) => { if (v) localStorage.setItem('selectedModel', v) })
 
 function createChat() {
   // Don't pile up empty chats — reuse the current one if it's still empty
@@ -568,7 +569,7 @@ if (models.value.length > 0) {
             <p class="settings-hint">When off, the assistant answers from its own knowledge only — no document retrieval.</p>
           </div>
           <label class="switch">
-            <input type="checkbox" v-model="useKnowledgeBase" />
+            <input type="checkbox" v-model="useKnowledgeBase"/>
             <span class="switch-slider"></span>
           </label>
         </div>
