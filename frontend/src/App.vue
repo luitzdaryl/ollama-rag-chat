@@ -386,13 +386,19 @@ onMounted(async () => {
   try {
     const res = await fetch(`${API_BASE}/api/models`)
     models.value = await res.json()
-    if (models.value.length > 0) selectedModel.value = models.value[0]
+    
+    const saved = localStorage.getItem('selectedModel')
+if (models.value.length > 0) {
+  selectedModel.value = models.value.includes(saved) ? saved : models.value[0]
+}
+
   } catch (e) {
     console.error('Could not load models:', e)
   }
   await loadDocuments()
   scrollToBottom(true)
 })
+
 </script>
 <template>
   <div class="shell">
