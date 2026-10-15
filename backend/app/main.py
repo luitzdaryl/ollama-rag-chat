@@ -139,8 +139,10 @@ async def chat(request: Request):
     return StreamingResponse(event_stream(), media_type="text/plain")
 
 
+ # Upload docs endpoint
+
 @app.post("/api/documents/upload")
-async def upload_document(file: UploadFile = File(...)):
+def upload_document(file: UploadFile = File(...)):    # plain def: FastAPI runs it in a thread pool
     suffix = Path(file.filename).suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
@@ -158,6 +160,7 @@ async def upload_document(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="No extractable text found in file")
 
         vectors = [embed_text(c) for c in chunks]
+        delete_by_filename(file.filename)             # replace any previous copy
         store_chunks(filename=file.filename, chunks=chunks, vectors=vectors)
     finally:
         os.unlink(tmp_path)
