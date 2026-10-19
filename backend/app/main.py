@@ -1,44 +1,43 @@
-# We need to import the required libraries first
-
+import asyncio
+import json
 import os
 import shutil
 import tempfile
+from contextlib import asynccontextmanager
 from pathlib import Path
-from fastapi import UploadFile, File, HTTPException
 
-from document_processing import extract_text
-from chunking import chunk_text
-from embeddings import embed_text
-from vector_store import ensure_collection, store_chunks, delete_by_filename, list_filenames
-
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 import httpx
 import uvicorn
-
-from vector_store import search
-from embeddings import embed_text
-
-# additional libraries for the chat streaming endpoint
-
-from fastapi import Request
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-import json
-import os
+
+from chunking import chunk_text
+from document_processing import extract_text
+from embeddings import embed_text
+from vector_store import (
+    delete_by_filename,
+    ensure_collection,
+    list_documents,
+    search,
+    store_chunks,
+)
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-
-# OLLAMA_BASE_URL = "http://localhost:11434"  # we'll make this configurable later for Docker
-
-app = FastAPI(title="Ollama Chat Backend")
-
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
+RELEVANCE_THRESHOLD = 0.45  # tune against real scores
+TOP_K = 5
 
-@app.on_event("startup")
-async def startup():
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     ensure_collection()
+    yield
 
-# Allows our Vue frontend (different port) to call this API from the browser
+
+app = FastAPI(title="Ollama RAG Chat Backend", lifespan=lifespan)
+
+# Allows the Vue frontend (different port) to call this API from the browser
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -46,16 +45,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/api/health")
 async def health():
     return {"status": "Ok-Backend is running"}
 
-# @app.get("/api/luitzdaryl")
-# async def luitzdaryl():
-#     return{"Luitz Daryl": "QUE MIRAS BOBO???"}
 
 @app.get("/api/models")
-async def list_models(): 
+async def list_models():
     """Ask Ollama which models are installed, return just their names."""
     async with httpx.AsyncClient() as client:
         resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
@@ -63,47 +60,97 @@ async def list_models():
         data = resp.json()
     return [m["name"] for m in data.get("models", [])]
 
-# This function builds a prompt for the RAG model, combining the user's question with the retrieved context chunks from the vector store.
+
+# ───────────────────────── RAG helpers ─────────────────────────
+
 DEFAULT_INSTRUCTION = (
     "Answer the question using ONLY the context below. "
     "If the context doesn't contain the answer, say you don't know — "
     "do not make up information."
 )
 
+
 def build_rag_prompt(question: str, retrieved_chunks: list[dict], instruction: str | None = None) -> str:
     if not retrieved_chunks:
         return question
 
     context = "\n\n".join(
-        f"[Source {i+1}: {c['filename']}]\n{c['text']}" for i, c in enumerate(retrieved_chunks)
+        f"[Source {i + 1}: {c['filename']}]\n{c['text']}" for i, c in enumerate(retrieved_chunks)
     )
-
     instruction = (instruction or DEFAULT_INSTRUCTION).strip() or DEFAULT_INSTRUCTION
-
     return f"{instruction}\n\nContext:\n{context}\n\nQuestion: {question}"
 
 
-# This is the main chat endpoint that streams responses from Ollama to the frontend
+async def rewrite_followup(model: str, history: list[dict], question: str) -> str:
+    """Turn a context-dependent follow-up ("and the second one?") into a standalone
+    search query. On any failure we fall back to the original question, so this
+    can never break chat."""
+    transcript = "\n".join(
+        f"{'User' if m.get('role') == 'user' else 'Assistant'}: {str(m.get('content', ''))[:400]}"
+        for m in history[-6:]
+    )
+    prompt = (
+        "Rewrite the user's latest message as ONE standalone search query that makes sense "
+        "without the conversation. Replace pronouns and references (\"it\", \"the second one\", "
+        "\"that\") with the specific things they refer to. If the message is already "
+        "self-contained, repeat it unchanged. Output only the query: no quotes, no explanation.\n\n"
+        f"Conversation:\n{transcript}\n\n"
+        f"Latest message: {question}\n\n"
+        "Standalone query:"
+    )
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json={
+                    "model": model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0, "num_predict": 100},
+                },
+            )
+            resp.raise_for_status()
+            text = resp.json().get("response", "").strip()
+    except Exception:
+        return question
 
-RELEVANCE_THRESHOLD = 0.45  # a starting point — worth tuning once you see real scores for off-topic messages
+    if not text:  # e.g. a reasoning model that spent its token budget "thinking"
+        return question
+    query = text.splitlines()[0].strip().strip("\"'")
+    return query if 0 < len(query) <= 300 else question
+
+
+# ───────────────────────── Chat ─────────────────────────
 
 @app.post("/api/chat")
 async def chat(request: Request):
     body = await request.json()
     model = body.get("model")
-    messages = body.get("messages", [])
+    messages = body.get("messages") or []
     prompt_instruction = body.get("prompt_instruction")
-    use_knowledge_base = body.get("use_knowledge_base", True)  # ON by default
+    use_knowledge_base = body.get("use_knowledge_base", True)
+    document_filter = body.get("document_filter")  # None = all documents, list = only these
 
+    if not model:
+        raise HTTPException(status_code=400, detail="No model selected")
     if not messages:
         raise HTTPException(status_code=400, detail="No messages provided")
+    if not isinstance(document_filter, list):
+        document_filter = None
 
     last_user_message = messages[-1]["content"]
+    search_query = last_user_message
+    relevant_chunks: list[dict] = []
 
-    relevant_chunks = []
-    if use_knowledge_base:
-        question_vector = embed_text(last_user_message)
-        results = search(question_vector, top_k=5)
+    # An empty filter list means "no documents selected": skip retrieval entirely
+    if use_knowledge_base and document_filter != []:
+        if len(messages) > 1:
+            search_query = await rewrite_followup(model, messages[:-1], last_user_message)
+
+        # embed_text and search are blocking calls: run them in worker threads
+        # so they don't freeze the event loop (and every other request with it)
+        question_vector = await asyncio.to_thread(embed_text, search_query)
+        results = await asyncio.to_thread(search, question_vector, TOP_K, document_filter)
         relevant_chunks = [
             {"filename": r.payload["filename"], "text": r.payload["text"], "score": r.score}
             for r in results
@@ -114,13 +161,18 @@ async def chat(request: Request):
         {"role": "user", "content": build_rag_prompt(last_user_message, relevant_chunks, prompt_instruction)}
     ]
 
-    sources = [
-        {"filename": c["filename"], "score": round(c["score"], 4)}
-        for c in relevant_chunks
-    ]
+    meta = {
+        "sources": [
+            {"filename": c["filename"], "score": round(c["score"], 4), "text": c["text"]}
+            for c in relevant_chunks
+        ],
+        # only sent when the rewrite actually changed the question
+        "search_query": search_query if search_query != last_user_message else None,
+    }
 
     async def event_stream():
-        yield f"__SOURCES__{json.dumps(sources)}\n"  # sent first, before any answer text
+        # First line: metadata (sources + what we searched for). Everything after it is answer text.
+        yield f"{'__META__'}{json.dumps(meta, ensure_ascii=False)}\n"
 
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream(
@@ -128,10 +180,17 @@ async def chat(request: Request):
                 f"{OLLAMA_BASE_URL}/api/chat",
                 json={"model": model, "messages": augmented_messages, "stream": True},
             ) as response:
+                if response.status_code != 200:
+                    detail = (await response.aread()).decode(errors="replace")[:200]
+                    yield f"[Ollama error {response.status_code}: {detail}]"
+                    return
                 async for line in response.aiter_lines():
                     if not line:
                         continue
                     chunk = json.loads(line)
+                    if "error" in chunk:
+                        yield f"[Ollama error: {chunk['error']}]"
+                        return
                     content = chunk.get("message", {}).get("content", "")
                     if content:
                         yield content
@@ -139,29 +198,39 @@ async def chat(request: Request):
     return StreamingResponse(event_stream(), media_type="text/plain")
 
 
- # Upload docs endpoint
+# ───────────────────────── Documents ─────────────────────────
 
+# Plain `def`, not `async def`: it does blocking work (file parsing, HTTP calls to
+# Ollama), so FastAPI runs it in a thread pool instead of freezing the server.
 @app.post("/api/documents/upload")
-def upload_document(file: UploadFile = File(...)):    # plain def: FastAPI runs it in a thread pool
+def upload_document(file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Missing filename")
     suffix = Path(file.filename).suffix.lower()
     if suffix not in SUPPORTED_EXTENSIONS:
         raise HTTPException(status_code=400, detail=f"Unsupported file type: {suffix}")
 
-    # extract_text expects a real file path, not raw bytes — write to a
-    # temp file first, always clean it up afterward regardless of outcome
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
 
     try:
-        text = extract_text(tmp_path)
+        file_size = os.path.getsize(tmp_path)
+        try:
+            text = extract_text(tmp_path)
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Could not read file: {e}")
+
         chunks = chunk_text(text)
         if not chunks:
             raise HTTPException(status_code=400, detail="No extractable text found in file")
 
         vectors = [embed_text(c) for c in chunks]
-        delete_by_filename(file.filename)             # replace any previous copy
-        store_chunks(filename=file.filename, chunks=chunks, vectors=vectors)
+
+        # Replace any previous copy only AFTER embedding succeeded, so a failed
+        # re-upload can't wipe the version you already had.
+        delete_by_filename(file.filename)
+        store_chunks(filename=file.filename, chunks=chunks, vectors=vectors, file_size=file_size)
     finally:
         os.unlink(tmp_path)
 
@@ -169,14 +238,15 @@ def upload_document(file: UploadFile = File(...)):    # plain def: FastAPI runs 
 
 
 @app.get("/api/documents")
-async def list_documents():
-    return {"documents": list_filenames()}
+def get_documents():
+    return {"documents": list_documents()}
 
 
 @app.delete("/api/documents/{filename}")
-async def delete_document(filename: str):
+def delete_document(filename: str):
     delete_by_filename(filename)
     return {"deleted": filename}
+
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
