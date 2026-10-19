@@ -26,7 +26,7 @@ from vector_store import (
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
 RELEVANCE_THRESHOLD = 0.45  # tune against real scores
-TOP_K = 5
+TOP_K = 3
 
 
 @asynccontextmanager
