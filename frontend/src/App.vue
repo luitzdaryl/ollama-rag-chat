@@ -1085,6 +1085,8 @@ onMounted(async () => {
 /* ───────── Message meta + sources ───────── */
 .message-meta {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   font-size: 0.7rem;
   color: var(--color-text-secondary);
