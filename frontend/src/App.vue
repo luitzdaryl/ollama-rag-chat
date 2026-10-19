@@ -529,10 +529,18 @@ onMounted(async () => {
     <!-- ───── Sidebar: chat list ───── -->
     <aside class="sidebar">
       <button class="new-chat-btn" @click="createChat">＋ New chat</button>
- 
+      <input v-model="chatQuery" class="chat-search" type="search" placeholder="Search chats…" />
+
+      <p v-if="storageFull" class="storage-warning">
+        Browser storage is full, so new messages are NOT being saved. Delete some old chats.
+      </p>
+
       <div class="chat-list">
+        <p v-if="chatQuery && !filteredChats.length" class="no-results">
+          No chats match "{{ chatQuery }}"
+        </p>
         <div
-          v-for="chat in chats"
+          v-for="chat in filteredChats"
           :key="chat.id"
           class="chat-item"
           :class="{ active: chat.id === activeChatId }"
@@ -546,7 +554,7 @@ onMounted(async () => {
             @focus="$event.target.select()"
             @keydown.enter="confirmRename"
             @keydown.escape="cancelRename"
-            @blur="confirmRename"/>
+            @blur="confirmRename" />
           <template v-else>
             <span class="chat-title" @dblclick.stop="startRename(chat)">{{ chat.title }}</span>
             <span class="chat-actions">
@@ -557,8 +565,8 @@ onMounted(async () => {
         </div>
       </div>
     </aside>
- 
-    <!-- ───── Top bar (right column only): header + model select + tabs ───── -->
+
+    <!-- ───── Top bar ───── -->
     <div class="topbar">
       <header class="app-header">
         <h1>Ollama Rag Chat</h1>
@@ -566,19 +574,19 @@ onMounted(async () => {
           {{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}
         </button>
       </header>
- 
+
       <select class="model-select" v-model="selectedModel">
         <option v-for="m in models" :key="m" :value="m">{{ m }}</option>
       </select>
- 
+
       <div class="tabs">
         <button :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">💬 Chat</button>
         <button :class="{ active: activeTab === 'documents' }" @click="activeTab = 'documents'">📄 Documents</button>
         <button :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'">⚙️ Settings</button>
       </div>
     </div>
- 
-    <!-- ───── Content (fills the remaining height) ───── -->
+
+    <!-- ───── Content ───── -->
     <main class="content">
       <!-- Documents tab -->
       <div v-if="activeTab === 'documents'" class="documents-panel">
@@ -589,25 +597,46 @@ onMounted(async () => {
             <input type="file" @change="handleFileUpload" :disabled="uploading" hidden />
           </label>
         </div>
- 
+
         <p v-if="uploadError" class="upload-error">{{ uploadError }}</p>
- 
-        <ul v-if="documents.length" class="document-list">
-          <li v-for="doc in documents" :key="doc" class="document-item">
-            <span class="document-name">{{ doc }}</span>
-            <button class="delete-button" @click="deleteDocument(doc)" title="Remove">✕</button>
-          </li>
-        </ul>
+
+        <template v-if="documents.length">
+          <div class="doc-toolbar">
+            <span>Tick the documents the assistant may search</span>
+            <span>
+              <button class="link-btn" @click="selectAllDocs">All</button> ·
+              <button class="link-btn" @click="selectNoDocs">None</button>
+            </span>
+          </div>
+
+          <ul class="document-list">
+            <li v-for="doc in documents" :key="doc.filename" class="document-item">
+              <label class="doc-check" title="Include in search">
+                <input
+                  type="checkbox"
+                  :checked="isDocIncluded(doc.filename)"
+                  @change="toggleDoc(doc.filename)" />
+              </label>
+              <div class="doc-info">
+                <span class="document-name">{{ doc.filename }}</span>
+                <span class="doc-meta">
+                  {{ doc.chunks }} chunks · {{ fmtSize(doc.file_size) }} · {{ fmtDate(doc.uploaded_at) }}
+                </span>
+              </div>
+              <button class="delete-button" @click="deleteDocument(doc.filename)" title="Remove">✕</button>
+            </li>
+          </ul>
+        </template>
         <p v-else class="no-documents">No documents uploaded yet — chat will answer from the model's general knowledge only.</p>
       </div>
- 
+
       <!-- Chat tab -->
       <template v-if="activeTab === 'chat' && activeChat">
         <div ref="chatWindowEl" class="chat-window" @click="handleChatClick">
           <p v-if="!activeChat.messages.length" class="empty-chat">
             Ask a question about your documents — or switch the knowledge base off in Settings to chat with the model directly.
           </p>
- 
+
           <div
             v-for="(msg, i) in activeChat.messages"
             :key="i"
@@ -628,43 +657,61 @@ onMounted(async () => {
                 <button class="edit-cancel" @click="cancelEdit">Cancel</button>
               </div>
             </template>
- 
+
             <!-- Normal display -->
             <template v-else>
               <div class="bubble" :class="msg.role === 'user' ? 'bubble--user' : 'bubble--assistant'">
-                <div v-if="msg.role === 'assistant'" v-html="renderMarkdown(msg.content)"></div>
+                <template v-if="msg.role === 'assistant'">
+                  <span v-if="!msg.content && !msg.timestamp" class="bubble-note thinking">Thinking…</span>
+                  <span v-else-if="!msg.content && msg.stopped" class="bubble-note">Stopped before any output</span>
+                  <span v-else-if="!msg.content" class="bubble-note">No response</span>
+                  <div v-else v-html="renderMarkdown(msg.content)"></div>
+                </template>
                 <template v-else>{{ msg.content }}</template>
               </div>
- 
+
               <div v-if="msg.timestamp" class="message-meta">
                 <span>{{ fmtTime(msg.timestamp) }}</span>
-                <template v-if="msg.role === 'assistant' && msg.elapsed">
-                  <span>·</span><span>{{ msg.elapsed }}</span>
-                  <span>·</span><span>{{ msg.modelName }}</span>
+                <template v-if="msg.role === 'assistant'">
+                  <template v-if="msg.elapsed"><span>·</span><span>{{ msg.elapsed }}</span></template>
+                  <template v-if="msg.modelName"><span>·</span><span>{{ msg.modelName }}</span></template>
+                  <template v-if="msg.stopped"><span>·</span><span class="stopped-tag">stopped</span></template>
                 </template>
+
+                <button class="meta-btn" title="Copy message" @click="copyMessage(msg.content, i)">
+                  {{ copiedIndex === i ? '✓ Copied' : '⧉ Copy' }}
+                </button>
                 <button
                   v-if="msg.role === 'user' && !isStreaming"
-                  class="edit-msg-btn"
+                  class="meta-btn"
                   title="Edit and resend"
                   @click="startEdit(i)">✎ Edit</button>
+                <button
+                  v-if="msg.role === 'assistant' && i === activeChat.messages.length - 1 && !isStreaming"
+                  class="meta-btn"
+                  title="Generate a new answer"
+                  @click="regenerate">↻ Regenerate</button>
               </div>
- 
+
               <details v-if="msg.sources && msg.sources.length" class="sources-expander">
                 <summary>Sources ({{ msg.sources.length }})</summary>
-                <ul class="sources-list">
-                  <li v-for="(src, si) in msg.sources" :key="si">
-                    {{ src.filename }} <span class="source-score">({{ src.score }})</span>
-                  </li>
-                </ul>
+                <p v-if="msg.searchQuery" class="search-query">
+                  Searched for: <em>{{ msg.searchQuery }}</em>
+                </p>
+                <details v-for="(src, si) in msg.sources" :key="si" class="source-item">
+                  <summary>
+                    <span class="source-name">{{ src.filename }}</span>
+                    <span class="source-score">{{ src.score }}</span>
+                  </summary>
+                  <pre v-if="src.text" class="source-passage">{{ src.text }}</pre>
+                </details>
               </details>
             </template>
           </div>
         </div>
- 
-        <div class="mode-indicator">
-          {{ useKnowledgeBase ? '📚 Using your documents' : '💭 Model knowledge only' }}
-        </div>
- 
+
+        <div class="mode-indicator">{{ modeLabel }}</div>
+
         <div class="composer">
           <textarea
             ref="composerEl"
@@ -675,15 +722,20 @@ onMounted(async () => {
             rows="1"
             class="composer-textarea"
             :disabled="isStreaming"></textarea>
-          <button class="send-button" @click="sendMessage()" :disabled="isStreaming || !userInput.trim()">
-            <div class="spinner" v-if="isStreaming"></div>
-            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+
+          <button v-if="isStreaming" class="send-button" title="Stop generating" @click="stopGeneration">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
+              <rect x="6" y="6" width="12" height="12" rx="2" />
+            </svg>
+          </button>
+          <button v-else class="send-button" @click="sendMessage()" :disabled="!userInput.trim()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
           </button>
         </div>
       </template>
- 
+
       <!-- Settings tab -->
       <div v-if="activeTab === 'settings'" class="settings-panel">
         <div class="toggle-row">
@@ -692,11 +744,11 @@ onMounted(async () => {
             <p class="settings-hint">When off, the assistant answers from its own knowledge only — no document retrieval.</p>
           </div>
           <label class="switch">
-            <input type="checkbox" v-model="useKnowledgeBase"/>
+            <input type="checkbox" v-model="useKnowledgeBase" />
             <span class="switch-slider"></span>
           </label>
         </div>
- 
+
         <h3>⚙️ RAG Instructions</h3>
         <p class="settings-hint">Customize how the assistant should behave when answering from your uploaded documents.</p>
         <textarea v-model="promptInstruction" class="prompt-textarea" rows="6"></textarea>
@@ -704,7 +756,7 @@ onMounted(async () => {
       </div>
     </main>
 
-    <!-- ───── Confirm modal (used by every delete) ───── -->
+    <!-- ───── Confirm modal (rendered under <body> so layout can't clip it) ───── -->
     <Teleport to="body">
       <div
         v-if="confirmState.open"
