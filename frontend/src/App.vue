@@ -1266,18 +1266,25 @@ onMounted(async () => {
 .document-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
   background: var(--color-surface-alt);
   border-radius: 8px;
-  padding: 6px 10px;
+  padding: 8px 10px;
   font-size: 0.85rem;
 }
- 
-.document-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.doc-check input { accent-color: var(--color-accent); cursor: pointer; width: 15px; height: 15px; }
+.doc-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.document-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-meta { font-size: 0.72rem; color: var(--color-text-secondary); }
+.doc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 0.78rem;
+  color: var(--color-text-secondary);
 }
+.link-btn { background: none; border: none; color: var(--color-accent); cursor: pointer; font-size: 0.78rem; padding: 0 2px; }
  
 .delete-button {
   background: none;
