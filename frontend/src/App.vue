@@ -1114,12 +1114,40 @@ onMounted(async () => {
  
 .sources-expander {
   margin-top: 4px;
-  max-width: 78%;
+  width: 78%;
   font-size: 0.8rem;
   color: var(--color-text-secondary);
 }
-.sources-list { margin: 4px 0 0; padding-left: 18px; }
-.source-score { opacity: 0.7; }
+.sources-expander > summary { cursor: pointer; }
+.search-query { margin: 6px 0 4px; font-size: 0.75rem; }
+.source-item {
+  margin: 4px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+.source-item > summary {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.source-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.source-score { opacity: 0.7; flex-shrink: 0; }
+.source-passage {
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 180px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--color-text);
+  border-top: 1px solid var(--color-border);
+}
  
 /* ───────── Edit + resend ───────── */
 .edit-msg-btn {
