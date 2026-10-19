@@ -3,9 +3,33 @@ import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { renderMarkdown } from './markdown.js'
 
 const API_BASE = 'http://localhost:8000'
+const META_MARKER = '__META__' // first line of every /api/chat stream (see backend)
 
 // Custom directive: <input v-focus /> focuses the element when it appears
 const vFocus = { mounted: (el) => el.focus() }
+
+function loadJson(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+/* ───────── Core UI state ───────── */
+const models = ref([])
+const selectedModel = ref('')
+const activeTab = ref('chat') // 'chat' | 'documents' | 'settings'
+const userInput = ref('')
+const isStreaming = ref(false)
+const composerEl = ref(null)
+const chatWindowEl = ref(null)
+
+// Plain (non-reactive) handles for the request currently in flight
+let abortController = null
+let streamingChatId = null
+
+watch(selectedModel, (v) => { if (v) localStorage.setItem('selectedModel', v) })
 
 /* ───────── Confirm modal (used by every delete) ───────── */
 const confirmState = reactive({
@@ -19,7 +43,7 @@ const cancelBtnEl = ref(null)
 
 // Resolves true if confirmed, false if cancelled (Cancel, backdrop click, Escape)
 function askConfirm({ title, message, confirmLabel = 'Delete' }) {
-  if (confirmState.resolve) confirmState.resolve(false) // never leave an old promise hanging
+  if (confirmState.resolve) confirmState.resolve(false)
   return new Promise((resolve) => {
     confirmState.title = title
     confirmState.message = message
@@ -34,8 +58,7 @@ function closeConfirm(result) {
   confirmState.resolve = null
   resolve?.(result)
 }
-
-// Focus Cancel by default, so a stray Enter press can never delete anything
+// Focus Cancel by default, so a stray Enter can never delete anything
 watch(() => confirmState.open, async (open) => {
   if (open) {
     await nextTick()
@@ -43,19 +66,36 @@ watch(() => confirmState.open, async (open) => {
   }
 })
 
-/* ───────── Core UI state ───────── */
-const models = ref([])
-const selectedModel = ref('')
-const activeTab = ref('chat') // 'chat' | 'documents' | 'settings'
-const userInput = ref('')
-const isStreaming = ref(false)
-const composerEl = ref(null)
-const chatWindowEl = ref(null)
-
 /* ───────── Documents (RAG) ───────── */
-const documents = ref([])
+const documents = ref([]) // [{ filename, chunks, file_size, uploaded_at }]
 const uploading = ref(false)
 const uploadError = ref('')
+
+// Documents the user has UNticked. Storing exclusions (not inclusions) means
+// newly uploaded files are searched by default.
+const excludedDocs = ref(loadJson('excludedDocs', []))
+watch(excludedDocs, (v) => localStorage.setItem('excludedDocs', JSON.stringify(v)), { deep: true })
+
+const isDocIncluded = (name) => !excludedDocs.value.includes(name)
+function toggleDoc(name) {
+  excludedDocs.value = isDocIncluded(name)
+    ? [...excludedDocs.value, name]
+    : excludedDocs.value.filter((n) => n !== name)
+}
+function selectAllDocs() {
+  excludedDocs.value = []
+}
+function selectNoDocs() {
+  excludedDocs.value = documents.value.map((d) => d.filename)
+}
+
+const includedDocs = computed(() =>
+  documents.value.map((d) => d.filename).filter(isDocIncluded)
+)
+// null = search everything; an array = search only these (backend treats [] as "skip retrieval")
+const documentFilter = computed(() =>
+  includedDocs.value.length === documents.value.length ? null : includedDocs.value
+)
 
 /* ───────── Settings (persisted) ───────── */
 const useKnowledgeBase = ref(localStorage.getItem('useKnowledgeBase') !== 'false')
@@ -67,6 +107,16 @@ watch(promptInstruction, (v) => localStorage.setItem('ragInstruction', v))
 function resetPromptInstruction() {
   promptInstruction.value = DEFAULT_INSTRUCTION
 }
+
+const modeLabel = computed(() => {
+  if (!useKnowledgeBase.value) return '💭 Model knowledge only'
+  const total = documents.value.length
+  const used = includedDocs.value.length
+  if (!total) return '📚 Knowledge base is empty'
+  if (!used) return '📚 No documents selected'
+  if (used === total) return `📚 Using all ${total} document${total === 1 ? '' : 's'}`
+  return `📚 Using ${used} of ${total} documents`
+})
 
 /* ───────── Theme ───────── */
 const theme = ref(localStorage.getItem('theme') || 'dark')
@@ -84,19 +134,18 @@ const CHATS_KEY = 'ragChat.chats'
 const ACTIVE_KEY = 'ragChat.activeChatId'
 
 function loadChats() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(CHATS_KEY) || '[]')
-    return Array.isArray(saved) ? saved : []
-  } catch {
-    return []
-  }
+  const saved = loadJson(CHATS_KEY, [])
+  return Array.isArray(saved) ? saved : []
 }
 
+const storageFull = ref(false)
 function saveChats() {
   try {
     localStorage.setItem(CHATS_KEY, JSON.stringify(chats.value))
+    storageFull.value = false
   } catch (e) {
-    console.warn('Could not save chats:', e) // e.g. storage quota exceeded
+    console.warn('Could not save chats:', e)
+    storageFull.value = true // surfaced in the sidebar so this never fails silently
   }
 }
 
@@ -104,15 +153,26 @@ const chats = ref(loadChats())
 const activeChatId = ref(localStorage.getItem(ACTIVE_KEY) || '')
 const activeChat = computed(() => chats.value.find((c) => c.id === activeChatId.value))
 
-// Save on any change, but NOT during streaming: the deep watcher would
-// otherwise re-serialize every chat on every single token. We save explicitly
-// when the stream finishes instead.
+// Save on any change, but not mid-stream: a deep watcher would re-serialize
+// every chat on every token. We save explicitly when the stream finishes.
 watch(chats, () => { if (!isStreaming.value) saveChats() }, { deep: true })
 watch(activeChatId, (id) => localStorage.setItem(ACTIVE_KEY, id))
-watch(selectedModel, (v) => { if (v) localStorage.setItem('selectedModel', v) })
+
+/* Sidebar search: matches chat titles AND message text */
+const chatQuery = ref('')
+const filteredChats = computed(() => {
+  const q = chatQuery.value.trim().toLowerCase()
+  if (!q) return chats.value
+  return chats.value.filter(
+    (c) =>
+      c.title.toLowerCase().includes(q) ||
+      c.messages.some((m) => (m.content || '').toLowerCase().includes(q))
+  )
+})
 
 function createChat() {
-  // Don't pile up empty chats — reuse the current one if it's still empty
+  chatQuery.value = ''
+  // Don't pile up empty chats; reuse the current one if it's still empty
   if (activeChat.value && activeChat.value.messages.length === 0) {
     activeTab.value = 'chat'
     return
@@ -139,14 +199,15 @@ async function deleteChat(id) {
   })
   if (!ok) return
 
+  if (isStreaming.value && streamingChatId === id) stopGeneration()
   const wasActive = id === activeChatId.value
-  if (wasActive) cancelEdit() // see note below
+  if (wasActive) cancelEdit() // otherwise the edit box would reappear on the next chat
   chats.value = chats.value.filter((c) => c.id !== id)
   if (!chats.value.length) createChat()
   else if (wasActive) activeChatId.value = chats.value[0].id
 }
 
-// First launch, or saved active id no longer exists
+// First launch, or the saved active id no longer exists
 if (!chats.value.length) createChat()
 else if (!activeChat.value) activeChatId.value = chats.value[0].id
 
@@ -186,17 +247,15 @@ async function saveEdit(index) {
   const text = editingContent.value.trim()
   if (!text || isStreaming.value) return
   const chat = activeChat.value
-  // Everything from the edited message onward is discarded, then re-asked
-  chat.messages = chat.messages.slice(0, index)
+  chat.messages = chat.messages.slice(0, index) // drop the edited message and everything after it
   if (index === 0) chat.title = 'New Chat' // so the title regenerates from the new text
   cancelEdit()
   await sendMessage(text)
 }
 
 /* ───────── Scrolling ───────── */
-// Called right after state changes, BEFORE Vue updates the DOM, so the
-// "was the user at the bottom?" measurement is from before the new content.
-// This stops us yanking the view down if someone scrolled up to read.
+// Measure "was the user at the bottom?" BEFORE Vue updates the DOM, so we
+// don't yank the view down while someone is scrolled up reading.
 async function scrollToBottom(force = false) {
   const el = chatWindowEl.value
   const wasNearBottom = el ? el.scrollHeight - el.scrollTop - el.clientHeight < 150 : true
@@ -222,19 +281,16 @@ function handleComposerKey(e) {
   }
 }
 
-/* ───────── Sending + streaming ───────── */
+/* ───────── Sending, streaming, stopping, regenerating ───────── */
 async function sendMessage(overrideText) {
   // overrideText is only a string when called from saveEdit; a click handler
   // would pass an event object, so check the type rather than truthiness.
   const text = (typeof overrideText === 'string' ? overrideText : userInput.value).trim()
   if (!text || isStreaming.value) return
-
-  // Capture the chat once. If the user switches chats mid-stream, this
-  // response must still land in the chat it was asked in.
   const chat = activeChat.value
-  const startedAt = Date.now()
+  if (!chat) return
 
-  chat.messages.push({ role: 'user', content: text, timestamp: startedAt })
+  chat.messages.push({ role: 'user', content: text, timestamp: Date.now() })
   if (chat.title === 'New Chat') {
     chat.title = text.length > 35 ? text.slice(0, 35) + '…' : text
   }
@@ -244,6 +300,24 @@ async function sendMessage(overrideText) {
     userInput.value = ''
     await nextTick(autoResizeComposer)
   }
+  await generateAnswer(chat)
+}
+
+async function regenerate() {
+  if (isStreaming.value) return
+  const chat = activeChat.value
+  const last = chat?.messages[chat.messages.length - 1]
+  if (!last || last.role !== 'assistant') return
+  chat.messages.pop() // drop the old answer; the question before it stays
+  await generateAnswer(chat)
+}
+
+function stopGeneration() {
+  abortController?.abort()
+}
+
+async function generateAnswer(chat) {
+  const startedAt = Date.now()
 
   // History to send: skip error bubbles and empty messages
   const history = chat.messages
@@ -254,51 +328,64 @@ async function sendMessage(overrideText) {
     role: 'assistant',
     content: '',
     sources: [],
-    timestamp: null, // set when streaming finishes; the meta line appears then
+    searchQuery: null, // set when the backend rewrote a follow-up into a standalone query
+    timestamp: null, // set when streaming finishes; the meta row appears then
     elapsed: '',
     modelName: selectedModel.value,
     isError: false,
+    stopped: false,
   })
   chat.messages.push(assistantMessage)
   scrollToBottom(true)
+
+  abortController = new AbortController()
+  streamingChatId = chat.id
   isStreaming.value = true
 
   try {
     const response = await fetch(`${API_BASE}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      signal: abortController.signal,
       body: JSON.stringify({
         model: selectedModel.value,
         prompt_instruction: promptInstruction.value,
         use_knowledge_base: useKnowledgeBase.value,
+        document_filter: documentFilter.value,
         messages: history,
       }),
     })
-    if (!response.ok || !response.body) throw new Error(`Backend returned ${response.status}`)
+    if (!response.ok || !response.body) {
+      const detail = await response.json().then((d) => d.detail).catch(() => null)
+      throw new Error(detail || `Backend returned ${response.status}`)
+    }
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
-    let sourcesParsed = false
+    let metaParsed = false
 
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
       buffer += decoder.decode(value, { stream: true })
 
-      if (!sourcesParsed) {
-        const newlineIndex = buffer.indexOf('\n')
-        if (newlineIndex === -1) continue // sources line not complete yet
-        const firstLine = buffer.slice(0, newlineIndex)
-        if (firstLine.startsWith('__SOURCES__')) {
+      if (!metaParsed) {
+        // The marker itself might still be arriving in pieces
+        if (buffer.length < META_MARKER.length && META_MARKER.startsWith(buffer)) continue
+        if (buffer.startsWith(META_MARKER)) {
+          const newlineIndex = buffer.indexOf('\n')
+          if (newlineIndex === -1) continue // metadata line not complete yet
           try {
-            assistantMessage.sources = JSON.parse(firstLine.slice('__SOURCES__'.length))
+            const meta = JSON.parse(buffer.slice(META_MARKER.length, newlineIndex))
+            assistantMessage.sources = meta.sources || []
+            assistantMessage.searchQuery = meta.search_query || null
           } catch (e) {
-            console.error('Failed to parse sources:', e)
+            console.error('Failed to parse metadata:', e)
           }
+          buffer = buffer.slice(newlineIndex + 1)
         }
-        buffer = buffer.slice(newlineIndex + 1)
-        sourcesParsed = true
+        metaParsed = true
       }
 
       assistantMessage.content += buffer
@@ -306,23 +393,62 @@ async function sendMessage(overrideText) {
       scrollToBottom()
     }
   } catch (err) {
-    console.error(err)
-    assistantMessage.isError = true
-    assistantMessage.content =
-      err instanceof TypeError ? 'Error: could not reach the backend.' : `Error: ${err.message}`
+    if (err.name === 'AbortError') {
+      assistantMessage.stopped = true // keep whatever text had already arrived
+    } else {
+      console.error(err)
+      assistantMessage.isError = true
+      assistantMessage.content =
+        err instanceof TypeError ? 'Error: could not reach the backend.' : `Error: ${err.message}`
+    }
   } finally {
     assistantMessage.timestamp = Date.now()
     assistantMessage.elapsed = ((Date.now() - startedAt) / 1000).toFixed(1) + 's'
     isStreaming.value = false
+    abortController = null
+    streamingChatId = null
     saveChats()
+    await nextTick()
+    if (activeTab.value === 'chat' && editingIndex.value === null) composerEl.value?.focus()
   }
+}
+
+/* ───────── Copy ───────── */
+const copiedIndex = ref(null)
+async function copyMessage(text, index) {
+  try {
+    await navigator.clipboard.writeText(text)
+  } catch {
+    return
+  }
+  copiedIndex.value = index
+  setTimeout(() => { if (copiedIndex.value === index) copiedIndex.value = null }, 1500)
+}
+
+// One delegated listener handles every code block's Copy button, including
+// ones created later by v-html re-renders.
+async function handleChatClick(e) {
+  const btn = e.target.closest('.code-copy-btn')
+  if (!btn) return
+  const code = btn.parentElement.querySelector('pre code')
+  try {
+    await navigator.clipboard.writeText(code.textContent)
+    btn.textContent = 'Copied!'
+  } catch {
+    btn.textContent = 'Failed'
+  }
+  setTimeout(() => { btn.textContent = 'Copy' }, 1500)
 }
 
 /* ───────── Documents ───────── */
 async function loadDocuments() {
   try {
     const res = await fetch(`${API_BASE}/api/documents`)
+    if (!res.ok) throw new Error(`status ${res.status}`)
     documents.value = (await res.json()).documents
+    // Forget exclusions for files that no longer exist
+    const names = documents.value.map((d) => d.filename)
+    excludedDocs.value = excludedDocs.value.filter((n) => names.includes(n))
   } catch (e) {
     console.error('Could not load documents:', e)
   }
@@ -339,8 +465,8 @@ async function handleFileUpload(event) {
     formData.append('file', file)
     const res = await fetch(`${API_BASE}/api/documents/upload`, { method: 'POST', body: formData })
     if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.detail || 'Upload failed')
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.detail || `Upload failed (${res.status})`)
     }
     await loadDocuments()
   } catch (e) {
@@ -362,24 +488,24 @@ async function deleteDocument(filename) {
   await loadDocuments()
 }
 
-/* ───────── Small helpers ───────── */
+/* ───────── Formatting helpers ───────── */
 function fmtTime(ts) {
   return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
-
-// One delegated listener handles every code block's Copy button, including
-// ones created later by v-html re-renders.
-async function handleChatClick(e) {
-  const btn = e.target.closest('.code-copy-btn')
-  if (!btn) return
-  const code = btn.parentElement.querySelector('pre code')
-  try {
-    await navigator.clipboard.writeText(code.textContent)
-    btn.textContent = 'Copied!'
-  } catch {
-    btn.textContent = 'Failed'
+function fmtSize(bytes) {
+  if (!bytes) return '—'
+  const units = ['B', 'KB', 'MB', 'GB']
+  let i = 0
+  let n = bytes
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024
+    i++
   }
-  setTimeout(() => { btn.textContent = 'Copy' }, 1500)
+  return `${n >= 10 || i === 0 ? Math.round(n) : n.toFixed(1)} ${units[i]}`
+}
+function fmtDate(iso) {
+  if (!iso) return 'date unknown'
+  return new Date(iso).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 onMounted(async () => {
@@ -387,19 +513,16 @@ onMounted(async () => {
   try {
     const res = await fetch(`${API_BASE}/api/models`)
     models.value = await res.json()
-    
     const saved = localStorage.getItem('selectedModel')
-if (models.value.length > 0) {
-  selectedModel.value = models.value.includes(saved) ? saved : models.value[0]
-}
-
+    if (models.value.length > 0) {
+      selectedModel.value = models.value.includes(saved) ? saved : models.value[0]
+    }
   } catch (e) {
     console.error('Could not load models:', e)
   }
   await loadDocuments()
   scrollToBottom(true)
 })
-
 </script>
 <template>
   <div class="shell">
