@@ -1093,6 +1093,24 @@ onMounted(async () => {
   margin-top: 3px;
   padding: 0 4px;
 }
+.meta-btn {
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  font-size: 0.7rem;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.message-wrap:hover .meta-btn,
+.meta-btn:focus-visible { opacity: 1; }
+.meta-btn:hover { color: var(--color-accent); }
+.stopped-tag { color: #f59e0b; }
+
+.bubble-note { color: var(--color-text-secondary); font-style: italic; }
+.thinking { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: 0.4; } }
  
 .sources-expander {
   margin-top: 4px;
