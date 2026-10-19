@@ -1500,4 +1500,29 @@ onMounted(async () => {
 .modal-danger { background: #dc2626; border-color: #dc2626; color: #fff; font-weight: 600; }
 .modal-danger:hover { background: #b91c1c; border-color: #b91c1c; }
 
+/* ───────── Chat search + storage warning ───────── */
+.chat-search {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  outline: none;
+}
+.chat-search:focus { border-color: var(--color-accent); }
+.no-results { margin: 8px 4px; font-size: 0.8rem; color: var(--color-text-secondary); word-break: break-word; }
+.storage-warning {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #f59e0b;
+  border: 1px solid #f59e0b;
+  border-radius: 8px;
+}
+
 </style>
