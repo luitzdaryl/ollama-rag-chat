@@ -26,8 +26,12 @@ from vector_store import (
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
-RELEVANCE_THRESHOLD = 0.45  # tune against real scores
-TOP_K = 3
+
+# Relevance gate. All three compare against COSINE similarity, the number shown in Sources.
+DENSE_THRESHOLD = 0.45   # this semantically close is always relevant
+DENSE_FLOOR = 0.30       # a keyword match only counts if it is at least this close semantically
+KEYWORD_RANK_LIMIT = 5   # ...and ranks in the top N of the keyword results
+TOP_K = 5
 
 
 @asynccontextmanager
