@@ -175,8 +175,13 @@ async def chat(request: Request):
     ]
 
     meta = {
-        "sources": [
-            {"filename": c["filename"], "score": round(c["score"], 4), "text": c["text"]}
+               "sources": [
+            {
+                "filename": c["filename"],
+                "score": round(c["dense"] or 0.0, 4),
+                "keyword_rank": c["keyword_rank"],
+                "text": c["text"],
+            }
             for c in relevant_chunks
         ],
         # only sent when the rewrite actually changed the question
