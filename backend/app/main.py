@@ -33,6 +33,16 @@ DENSE_FLOOR = 0.30       # a keyword match only counts if it is at least this cl
 KEYWORD_RANK_LIMIT = 5   # ...and ranks in the top N of the keyword results
 TOP_K = 5
 
+def is_relevant(c: dict) -> bool:
+    dense = c["dense"] or 0.0
+    if dense >= DENSE_THRESHOLD:
+        return True
+    return (
+        c["keyword_rank"] is not None
+        and c["keyword_rank"] <= KEYWORD_RANK_LIMIT
+        and dense >= DENSE_FLOOR
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
