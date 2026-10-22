@@ -701,7 +701,9 @@ onMounted(async () => {
                 <details v-for="(src, si) in msg.sources" :key="si" class="source-item">
                   <summary>
                     <span class="source-name">{{ src.filename }}</span>
-                    <span class="source-score">{{ src.score }}</span>
+                    <span class="source-score">
+                      {{ src.score }}<template v-if="src.keyword_rank"> · keyword #{{ src.keyword_rank }}</template>
+                    </span>
                   </summary>
                   <pre v-if="src.text" class="source-passage">{{ src.text }}</pre>
                 </details>
