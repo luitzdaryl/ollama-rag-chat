@@ -243,7 +243,9 @@ def upload_document(file: UploadFile = File(...)):
         if not chunks:
             raise HTTPException(status_code=400, detail="No extractable text found in file")
 
-        vectors = [embed_text(c) for c in chunks]
+        vectors = started = time.perf_counter()
+        vectors = embed_texts(chunks)
+        print(f"[upload] {file.filename}: embedded {len(chunks)} chunks in {time.perf_counter() - started:.1f}s")
 
         # Replace any previous copy only AFTER embedding succeeded, so a failed
         # re-upload can't wipe the version you already had.
