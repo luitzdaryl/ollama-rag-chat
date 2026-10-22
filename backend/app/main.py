@@ -165,12 +165,10 @@ async def chat(request: Request):
         # embed_text and search are blocking calls: run them in worker threads
         # so they don't freeze the event loop (and every other request with it)
         question_vector = await asyncio.to_thread(embed_text, search_query)
-        results = await asyncio.to_thread(search, question_vector, TOP_K, document_filter)
-        relevant_chunks = [
-            {"filename": r.payload["filename"], "text": r.payload["text"], "score": r.score}
-            for r in results
-            if r.score >= RELEVANCE_THRESHOLD
-        ]
+        candidates = await asyncio.to_thread(
+            hybrid_search, question_vector, search_query, document_filter
+        )
+        relevant_chunks = [c for c in candidates if is_relevant(c)][:TOP_K]
 
     augmented_messages = messages[:-1] + [
         {"role": "user", "content": build_rag_prompt(last_user_message, relevant_chunks, prompt_instruction)}
