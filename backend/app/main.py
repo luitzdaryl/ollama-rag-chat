@@ -1,6 +1,7 @@
 import asyncio
 import json
 import os
+import time
 import shutil
 import tempfile
 from contextlib import asynccontextmanager
@@ -14,12 +15,12 @@ from fastapi.responses import StreamingResponse
 
 from chunking import chunk_text
 from document_processing import extract_text
-from embeddings import embed_text
+from embeddings import embed_text, embed_texts
 from vector_store import (
     delete_by_filename,
     ensure_collection,
+    hybrid_search,
     list_documents,
-    search,
     store_chunks,
 )
 
