@@ -2,7 +2,7 @@ import os
 import threading
 import time
 
-RERANK_MODEL = os.environ.get("RERANK_MODEL", "BAAI/bge-reranker-base")
+RERANK_MODEL = os.environ.get("RERANK_MODEL", "BAAI/bge-reranker-v2-m3") # could also be BAAI/bge-reranker-base
 MAX_PASSAGE_CHARS = 2000  # safety cap; our chunks are far shorter than this
 
 _model = None
