@@ -109,13 +109,14 @@ def list_documents() -> list[dict]:
             break
     return sorted(docs.values(), key=lambda d: d["filename"].lower())
 
-
+    
 def hybrid_search(
     query_vector: list[float],
     query_text: str,
     filenames: list[str] | None = None,
     candidates: int = CANDIDATES,
-) -> list[dict]:
+    use_keyword: bool = True,
+) -> list[dict]:    
     """Run a semantic search AND a keyword search, then merge them with
     reciprocal-rank fusion.
 
