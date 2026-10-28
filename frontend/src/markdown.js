@@ -16,6 +16,9 @@ import yaml from 'highlight.js/lib/languages/yaml'
 import go from 'highlight.js/lib/languages/go'
 import java from 'highlight.js/lib/languages/java'
 import cpp from 'highlight.js/lib/languages/cpp'
+import csharp from 'highlight.js/lib/languages/csharp'
+import c from 'highlight.js/lib/languages/c'
+import html from 'highlight.js/lib/languages/xml' // html is an alias for xml
 import rust from 'highlight.js/lib/languages/rust'
 import dockerfile from 'highlight.js/lib/languages/dockerfile'
 import markdown from 'highlight.js/lib/languages/markdown'
@@ -28,7 +31,7 @@ import 'highlight.js/styles/github-dark.css'
 // aliases automatically (js, py, sh, html, yml, ...).
 const languages = {
   javascript, typescript, python, bash, json, css, xml, sql,
-  yaml, go, java, cpp, rust, dockerfile, markdown,
+  yaml, go, java, cpp, rust, dockerfile, markdown, csharp, c, html
 }
 for (const [name, def] of Object.entries(languages)) {
   hljs.registerLanguage(name, def)
