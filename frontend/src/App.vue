@@ -842,7 +842,7 @@ onMounted(async () => {
 
           <div class="setting-row">
             <div>
-              <strong>Keyword rank limit</strong>
+              <strong>Keyword-rank limit</strong>
               <p class="settings-hint">A keyword hit only counts if it ranks in the top N keyword results.</p>
             </div>
             <input class="num-input" type="number" min="1" max="20" v-model.number="retrieval.keyword_rank_limit" />
