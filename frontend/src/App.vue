@@ -368,6 +368,7 @@ async function generateAnswer(chat) {
     content: '',
     sources: [],
     searchQuery: null, // set when the backend rewrote a follow-up into a standalone query
+    rerankNote: null, // set when the backend ran the reranker
     timestamp: null, // set when streaming finishes; the meta row appears then
     elapsed: '',
     modelName: selectedModel.value,
@@ -419,6 +420,7 @@ async function generateAnswer(chat) {
             const meta = JSON.parse(buffer.slice(META_MARKER.length, newlineIndex))
             assistantMessage.sources = meta.sources || []
             assistantMessage.searchQuery = meta.search_query || null
+            assistantMessage.rerankNote = meta.rerank_status || null
           } catch (e) {
             console.error('Failed to parse metadata:', e)
           }
