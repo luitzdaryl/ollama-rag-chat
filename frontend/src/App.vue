@@ -850,7 +850,7 @@ onMounted(async () => {
 
           <div class="setting-row">
             <div>
-              <strong>Passages sent to the model</strong>
+              <strong>Passages sent to the model (Top-K)</strong>
               <p class="settings-hint">More = more context but slower and noisier.</p>
             </div>
             <input class="num-input" type="number" min="1" max="10" v-model.number="retrieval.top_k" />
