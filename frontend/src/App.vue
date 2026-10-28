@@ -392,6 +392,7 @@ async function generateAnswer(chat) {
         prompt_instruction: promptInstruction.value,
         use_knowledge_base: useKnowledgeBase.value,
         document_filter: documentFilter.value,
+        retrieval_settings: { ...retrieval },
         messages: history,
       }),
     })
