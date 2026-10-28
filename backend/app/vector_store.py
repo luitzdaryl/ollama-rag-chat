@@ -137,7 +137,7 @@ def hybrid_search(
     ).points
 
     sparse_hits = []
-    indices, values = query_sparse(query_text)
+    indices, values = query_sparse(query_text) if use_keyword else ([], [])
     if indices:  # a query made only of stopwords has no keywords to search for
         sparse_hits = client.query_points(
             collection_name=COLLECTION_NAME,
