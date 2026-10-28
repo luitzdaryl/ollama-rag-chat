@@ -740,6 +740,9 @@ onMounted(async () => {
                 <p v-if="msg.searchQuery" class="search-query">
                   Searched for: <em>{{ msg.searchQuery }}</em>
                 </p>
+                <p v-if="msg.rerankNote === 'unavailable'" class="search-query">
+                  Reranker unavailable (see the backend log), so the original order is used.
+                </p>
                 <details v-for="(src, si) in msg.sources" :key="si" class="source-item">
                   <summary>
                     <span class="source-name">{{ src.filename }}</span>
