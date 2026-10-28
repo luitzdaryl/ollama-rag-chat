@@ -1,9 +1,9 @@
 import asyncio
 import json
 import os
-import time
 import shutil
 import tempfile
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,6 +16,7 @@ from fastapi.responses import StreamingResponse
 from chunking import chunk_text
 from document_processing import extract_text
 from embeddings import embed_text, embed_texts
+from rerank import rerank, warmup as warmup_reranker
 from vector_store import (
     delete_by_filename,
     ensure_collection,
@@ -26,22 +27,71 @@ from vector_store import (
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
+RERANK_POOL = 20  # at most this many passing passages go through the reranker
 
-# Relevance gate. All three compare against COSINE similarity, the number shown in Sources.
-DENSE_THRESHOLD = 0.45   # this semantically close is always relevant
-DENSE_FLOOR = 0.30       # a keyword match only counts if it is at least this close semantically
-KEYWORD_RANK_LIMIT = 5   # ...and ranks in the top N of the keyword results
-TOP_K = 3  # how many sources to return to the frontend
+# Defaults for every tunable knob. The frontend sends its own values with each chat
+# request; anything missing or invalid falls back to these.
+DEFAULT_SETTINGS = {
+    "dense_threshold": 0.45,   # cosine similarity at or above this is always relevant
+    "dense_floor": 0.30,       # a keyword match also needs at least this cosine similarity...
+    "keyword_rank_limit": 5,   # ...and must rank in the top N of the keyword results
+    "top_k": 3,                # passages sent to the model
+    "use_keyword_search": True,
+    "use_reranker": False,
+    "rerank_min_score": None,  # optional cutoff in the reranker's own units (None = off)
+    "history_limit": 10,       # chat messages sent to the model (0 = all of them)
+}
 
-def is_relevant(c: dict) -> bool:
+
+def read_settings(raw) -> dict:
+    """Merge client-sent settings over the defaults, clamping everything to sane ranges."""
+    s = dict(DEFAULT_SETTINGS)
+    if not isinstance(raw, dict):
+        return s
+
+    def num(key, lo, hi, cast):
+        try:
+            s[key] = min(max(cast(raw[key]), lo), hi)
+        except (KeyError, TypeError, ValueError):
+            pass
+
+    num("dense_threshold", 0.0, 1.0, float)
+    num("dense_floor", 0.0, 1.0, float)
+    num("keyword_rank_limit", 1, 20, int)
+    num("top_k", 1, 10, int)
+    num("history_limit", 0, 100, int)
+    s["use_keyword_search"] = bool(raw.get("use_keyword_search", s["use_keyword_search"]))
+    s["use_reranker"] = bool(raw.get("use_reranker", s["use_reranker"]))
+    try:
+        v = raw.get("rerank_min_score")
+        s["rerank_min_score"] = None if v in (None, "") else float(v)
+    except (TypeError, ValueError):
+        s["rerank_min_score"] = None
+    return s
+
+
+def is_relevant(c: dict, s: dict) -> bool:
+    """The relevance gate. Compares COSINE similarity, the number shown in Sources."""
     dense = c["dense"] or 0.0
-    if dense >= DENSE_THRESHOLD:
+    if dense >= s["dense_threshold"]:
         return True
     return (
         c["keyword_rank"] is not None
-        and c["keyword_rank"] <= KEYWORD_RANK_LIMIT
-        and dense >= DENSE_FLOOR
+        and c["keyword_rank"] <= s["keyword_rank_limit"]
+        and dense >= s["dense_floor"]
     )
+
+
+def trim_history(messages: list[dict], limit: int) -> list[dict]:
+    """Keep only the last `limit` messages (0 = keep everything). The conversation
+    should start with a user message, so drop a leading assistant message if the
+    cut landed on one."""
+    if limit <= 0 or len(messages) <= limit:
+        return messages
+    trimmed = messages[-limit:]
+    while len(trimmed) > 1 and trimmed[0].get("role") != "user":
+        trimmed = trimmed[1:]
+    return trimmed
 
 
 @asynccontextmanager
@@ -74,6 +124,12 @@ async def list_models():
         resp.raise_for_status()
         data = resp.json()
     return [m["name"] for m in data.get("models", [])]
+
+
+@app.post("/api/rerank/warmup")
+def rerank_warmup():
+    """Load (and on first use, download) the reranker. Called when the toggle is switched on."""
+    return warmup_reranker()
 
 
 # ───────────────────────── RAG helpers ─────────────────────────
@@ -145,6 +201,7 @@ async def chat(request: Request):
     prompt_instruction = body.get("prompt_instruction")
     use_knowledge_base = body.get("use_knowledge_base", True)
     document_filter = body.get("document_filter")  # None = all documents, list = only these
+    settings = read_settings(body.get("retrieval_settings"))
 
     if not model:
         raise HTTPException(status_code=400, detail="No model selected")
@@ -153,44 +210,69 @@ async def chat(request: Request):
     if not isinstance(document_filter, list):
         document_filter = None
 
+    messages = trim_history(messages, settings["history_limit"])
     last_user_message = messages[-1]["content"]
     search_query = last_user_message
     relevant_chunks: list[dict] = []
+    rerank_status = None  # None = not requested, "applied", or "unavailable"
 
     # An empty filter list means "no documents selected": skip retrieval entirely
     if use_knowledge_base and document_filter != []:
         if len(messages) > 1:
             search_query = await rewrite_followup(model, messages[:-1], last_user_message)
 
-        # embed_text and search are blocking calls: run them in worker threads
-        # so they don't freeze the event loop (and every other request with it)
+        # These are blocking calls: run them in worker threads so they don't
+        # freeze the event loop (and every other request with it)
         question_vector = await asyncio.to_thread(embed_text, search_query)
         candidates = await asyncio.to_thread(
-            hybrid_search, question_vector, search_query, document_filter
+            hybrid_search,
+            question_vector,
+            search_query,
+            document_filter,
+            use_keyword=settings["use_keyword_search"],
         )
-        relevant_chunks = [c for c in candidates if is_relevant(c)][:TOP_K]
+        passing = [c for c in candidates if is_relevant(c, settings)]
+
+        if settings["use_reranker"] and passing:
+            pool = passing[:RERANK_POOL]
+            scores = await asyncio.to_thread(rerank, search_query, [c["text"] for c in pool])
+            if scores is None:
+                rerank_status = "unavailable"
+                relevant_chunks = passing[: settings["top_k"]]
+            else:
+                for c, sc in zip(pool, scores):
+                    c["rerank"] = sc
+                pool.sort(key=lambda c: c["rerank"], reverse=True)
+                if settings["rerank_min_score"] is not None:
+                    pool = [c for c in pool if c["rerank"] >= settings["rerank_min_score"]]
+                relevant_chunks = pool[: settings["top_k"]]
+                rerank_status = "applied"
+        else:
+            relevant_chunks = passing[: settings["top_k"]]
 
     augmented_messages = messages[:-1] + [
         {"role": "user", "content": build_rag_prompt(last_user_message, relevant_chunks, prompt_instruction)}
     ]
 
     meta = {
-               "sources": [
+        "sources": [
             {
                 "filename": c["filename"],
                 "score": round(c["dense"] or 0.0, 4),
                 "keyword_rank": c["keyword_rank"],
+                "rerank": round(c["rerank"], 3) if c.get("rerank") is not None else None,
                 "text": c["text"],
             }
             for c in relevant_chunks
         ],
         # only sent when the rewrite actually changed the question
         "search_query": search_query if search_query != last_user_message else None,
+        "rerank_status": rerank_status,
     }
 
     async def event_stream():
-        # First line: metadata (sources + what we searched for). Everything after it is answer text.
-        yield f"{'__META__'}{json.dumps(meta, ensure_ascii=False)}\n"
+        # First line: metadata. Everything after it is answer text.
+        yield f"__META__{json.dumps(meta, ensure_ascii=False)}\n"
 
         async with httpx.AsyncClient(timeout=None) as client:
             async with client.stream(
@@ -243,7 +325,7 @@ def upload_document(file: UploadFile = File(...)):
         if not chunks:
             raise HTTPException(status_code=400, detail="No extractable text found in file")
 
-        vectors = started = time.perf_counter()
+        started = time.perf_counter()
         vectors = embed_texts(chunks)
         print(f"[upload] {file.filename}: embedded {len(chunks)} chunks in {time.perf_counter() - started:.1f}s")
 
