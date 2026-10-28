@@ -103,10 +103,49 @@ watch(useKnowledgeBase, (v) => localStorage.setItem('useKnowledgeBase', v))
 
 const DEFAULT_INSTRUCTION = `Answer the question using ONLY the context below. If the context doesn't contain the answer, say you don't know — do not make up information.`
 const promptInstruction = ref(localStorage.getItem('ragInstruction') || DEFAULT_INSTRUCTION)
+
 watch(promptInstruction, (v) => localStorage.setItem('ragInstruction', v))
+
 function resetPromptInstruction() {
   promptInstruction.value = DEFAULT_INSTRUCTION
 }
+
+/* ───────── Retrieval settings (persisted) ───────── */
+const DEFAULT_RETRIEVAL = {
+  dense_threshold: 0.45,
+  dense_floor: 0.3,
+  keyword_rank_limit: 5,
+  top_k: 3,
+  use_keyword_search: true,
+  use_reranker: false,
+  rerank_min_score: null,
+  history_limit: 10,
+}
+const retrieval = reactive({ ...DEFAULT_RETRIEVAL, ...loadJson('retrievalSettings', {}) })
+watch(retrieval, (v) => localStorage.setItem('retrievalSettings', JSON.stringify(v)), { deep: true })
+function resetRetrieval() {
+  Object.assign(retrieval, DEFAULT_RETRIEVAL)
+}
+
+// Switching the reranker on asks the backend to load it (the first time that
+// downloads the model, which can take a while), so you see progress instead of
+// a mysteriously slow first question.
+const rerankState = ref('') // '' | 'loading' | 'ready' | an error message
+watch(
+  () => retrieval.use_reranker,
+  async (on) => {
+    if (!on) { rerankState.value = ''; return }
+    rerankState.value = 'loading'
+    try {
+      const res = await fetch(`${API_BASE}/api/rerank/warmup`, { method: 'POST' })
+      const data = await res.json()
+      rerankState.value = data.ready ? 'ready' : `Reranker unavailable: ${data.error || 'model could not load'}`
+    } catch {
+      rerankState.value = 'Reranker unavailable: backend not reachable'
+    }
+  },
+  { immediate: true }
+)
 
 const modeLabel = computed(() => {
   if (!useKnowledgeBase.value) return '💭 Model knowledge only'
