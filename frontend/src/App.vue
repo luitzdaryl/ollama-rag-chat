@@ -1646,4 +1646,34 @@ onMounted(async () => {
   border-radius: 8px;
 }
 
+/* ───────── Settings panel rows ───────── */
+
+.advanced { margin-top: 24px; border-top: 1px solid var(--color-border); padding-top: 14px; }
+.advanced > summary { cursor: pointer; font-weight: 600; font-size: 0.95rem; margin-bottom: 12px; }
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.setting-row .settings-hint { margin: 2px 0 0; }
+.range-row { padding: 10px 0; border-bottom: 1px solid var(--color-border); }
+.range-row label { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.range-row input[type='range'] { flex: 1; min-width: 140px; accent-color: var(--color-accent); }
+.range-row .settings-hint { margin: 4px 0 0; }
+.num-input {
+  width: 76px;
+  flex-shrink: 0;
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+.num-input:focus { outline: none; border-color: var(--color-accent); }
+
 </style>
