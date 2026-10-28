@@ -744,7 +744,7 @@ onMounted(async () => {
                   <summary>
                     <span class="source-name">{{ src.filename }}</span>
                     <span class="source-score">
-                      {{ src.score }}<template v-if="src.keyword_rank"> · keyword #{{ src.keyword_rank }}</template>
+                      {{ src.score }}<template v-if="src.keyword_rank"> · keyword #{{ src.keyword_rank }}</template><template v-if="src.rerank != null"> · rerank {{ src.rerank }}</template>
                     </span>
                   </summary>
                   <pre v-if="src.text" class="source-passage">{{ src.text }}</pre>
