@@ -805,77 +805,89 @@ onMounted(async () => {
  
         <!-- Advanced settings -->
         <details class="advanced">
-          <summary>🔧 Advanced retrieval</summary>
+            <summary>🔧 Advanced retrieval</summary>
 
-          <div class="setting-row">
-            <div>
-              <strong>Keyword search (hybrid)</strong>
-              <p class="settings-hint">Also match exact words (ports, error codes, names), not only meaning. Off = meaning only.</p>
+            <div class="advanced-grid">
+              <!-- Left: how passages are found and ranked -->
+              <section class="adv-col">
+                <h4>Search &amp; ranking</h4>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Keyword search (hybrid)</strong>
+                    <p class="settings-hint">Also match exact words (ports, error codes, names), not only meaning. Off = meaning only.</p>
+                  </div>
+                  <label class="switch"><input type="checkbox" v-model="retrieval.use_keyword_search" /><span class="switch-slider"></span></label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Reranker</strong>
+                    <p class="settings-hint">A second model re-reads the candidates against your question and picks the best. Slower; the first use downloads a model.</p>
+                    <p v-if="rerankState" class="settings-hint">
+                      {{ rerankState === 'loading' ? 'Loading the reranker… (the first time this downloads it)' : rerankState === 'ready' ? '✓ Reranker ready' : rerankState }}
+                    </p>
+                  </div>
+                  <label class="switch"><input type="checkbox" v-model="retrieval.use_reranker" /><span class="switch-slider"></span></label>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Minimum rerank score</strong>
+                    <p class="settings-hint">Optional. Drop passages the reranker scores below this. Leave blank until you've seen the scores in the backend log.</p>
+                  </div>
+                  <input class="num-input" type="number" step="0.1" placeholder="off" v-model.number="retrieval.rerank_min_score" />
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Passages sent to the model (Top-K)</strong>
+                    <p class="settings-hint">More = more context, but slower and noisier.</p>
+                  </div>
+                  <input class="num-input" type="number" min="1" max="10" v-model.number="retrieval.top_k" />
+                </div>
+              </section>
+
+              <!-- Right: what counts as relevant, and memory -->
+              <section class="adv-col">
+                <h4>Relevance &amp; memory</h4>
+
+                <div class="range-row">
+                  <label>
+                    <strong>Close-match threshold</strong> <em>{{ Number(retrieval.dense_threshold).toFixed(2) }}</em>
+                    <input type="range" min="0" max="1" step="0.01" v-model.number="retrieval.dense_threshold" />
+                  </label>
+                  <p class="settings-hint">A passage at least this similar to your question is always used. Higher = stricter, lower = more passages (and more noise).</p>
+                </div>
+
+                <div class="range-row">
+                  <label>
+                    <strong>Keyword-match floor</strong> <em>{{ Number(retrieval.dense_floor).toFixed(2) }}</em>
+                    <input type="range" min="0" max="1" step="0.01" v-model.number="retrieval.dense_floor" />
+                  </label>
+                  <p class="settings-hint">A keyword hit also needs at least this similarity, so a stray word match can't pull in an unrelated passage.</p>
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Keyword-rank limit</strong>
+                    <p class="settings-hint">A keyword hit only counts if it ranks in the top N keyword results.</p>
+                  </div>
+                  <input class="num-input" type="number" min="1" max="20" v-model.number="retrieval.keyword_rank_limit" />
+                </div>
+
+                <div class="setting-row">
+                  <div>
+                    <strong>Conversation memory (exchanges)</strong>
+                    <p class="settings-hint">Previous question-and-answer pairs the model sees with your new question. 0 = every question stands alone. Follow-up searches always look at the recent conversation, whatever this is set to.</p>
+                  </div>
+                  <input class="num-input" type="number" min="0" max="50" v-model.number="retrieval.history_exchanges" />
+                </div>
+              </section>
             </div>
-            <label class="switch"><input type="checkbox" v-model="retrieval.use_keyword_search" /><span class="switch-slider"></span></label>
-          </div>
 
-          <div class="setting-row">
-            <div>
-              <strong>Reranker</strong>
-              <p class="settings-hint">A second model re-reads the candidates against your question and picks the best. Slower; the first use downloads a model.</p>
-              <p v-if="rerankState" class="settings-hint">
-                {{ rerankState === 'loading' ? 'Loading the reranker… (the first time this downloads it)' : rerankState === 'ready' ? '✓ Reranker ready' : rerankState }}
-              </p>
-            </div>
-            <label class="switch"><input type="checkbox" v-model="retrieval.use_reranker" /><span class="switch-slider"></span></label>
-          </div>
-
-          <div class="range-row">
-            <label>
-              <strong>Close-match threshold</strong> <em>{{ Number(retrieval.dense_threshold).toFixed(2) }}</em>
-              <input type="range" min="0" max="1" step="0.01" v-model.number="retrieval.dense_threshold" />
-            </label>
-            <p class="settings-hint">A passage at least this similar to your question is always used. Higher = stricter, lower = more passages (and more noise).</p>
-          </div>
-
-          <div class="range-row">
-            <label>
-              <strong>Keyword-match floor</strong> <em>{{ Number(retrieval.dense_floor).toFixed(2) }}</em>
-              <input type="range" min="0" max="1" step="0.01" v-model.number="retrieval.dense_floor" />
-            </label>
-            <p class="settings-hint">A keyword hit also needs at least this similarity, so a stray word match can't pull in an unrelated passage.</p>
-          </div>
-
-          <div class="setting-row">
-            <div>
-              <strong>Keyword-rank limit</strong>
-              <p class="settings-hint">A keyword hit only counts if it ranks in the top N keyword results.</p>
-            </div>
-            <input class="num-input" type="number" min="1" max="20" v-model.number="retrieval.keyword_rank_limit" />
-          </div>
-
-          <div class="setting-row">
-            <div>
-              <strong>Passages sent to the model (Top-K)</strong>
-              <p class="settings-hint">More = more context but slower and noisier.</p>
-            </div>
-            <input class="num-input" type="number" min="1" max="10" v-model.number="retrieval.top_k" />
-          </div>
-
-          <div class="setting-row">
-            <div>
-              <strong>Minimum rerank score</strong>
-              <p class="settings-hint">Optional. Drop passages the reranker scores below this. Leave blank until you've seen real scores in Sources.</p>
-            </div>
-            <input class="num-input" type="number" step="0.1" placeholder="off" v-model.number="retrieval.rerank_min_score" />
-          </div>
-
-          <div class="setting-row">
-            <div>
-              <strong>History window (messages)</strong>
-              <p class="settings-hint">How many recent chat messages the model sees. 10 = about 5 exchanges. 0 = send everything.</p>
-            </div>
-            <input class="num-input" type="number" min="0" max="100" v-model.number="retrieval.history_limit" />
-          </div>
-
-          <button class="reset-button" @click="resetRetrieval">Reset retrieval settings</button>
-        </details>
+            <button class="reset-button" @click="resetRetrieval">Reset retrieval settings</button>
+          </details>
       </div>
     </main>
 
