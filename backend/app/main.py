@@ -210,7 +210,8 @@ async def chat(request: Request):
     if not isinstance(document_filter, list):
         document_filter = None
 
-    messages = trim_history(messages, settings["history_limit"])
+    full_history = messages  # the follow-up rewrite must see the whole conversation
+    messages = trim_history(messages, settings["history_exchanges"])  # the answering model sees this
     last_user_message = messages[-1]["content"]
     search_query = last_user_message
     relevant_chunks: list[dict] = []
@@ -218,8 +219,9 @@ async def chat(request: Request):
 
     # An empty filter list means "no documents selected": skip retrieval entirely
     if use_knowledge_base and document_filter != []:
-        if len(messages) > 1:
-            search_query = await rewrite_followup(model, messages[:-1], last_user_message)
+
+        if len(full_history) > 1:
+            search_query = await rewrite_followup(model, full_history[:-1], last_user_message)    
 
         # These are blocking calls: run them in worker threads so they don't
         # freeze the event loop (and every other request with it)
