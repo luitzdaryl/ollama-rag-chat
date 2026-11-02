@@ -39,7 +39,7 @@ DEFAULT_SETTINGS = {
     "use_keyword_search": True,
     "use_reranker": False,
     "rerank_min_score": None,  # optional cutoff in the reranker's own units (None = off)
-    "history_limit": 10,       # chat messages sent to the model (0 = all of them)
+    "history_exchanges": 5,    # previous question+answer pairs the model sees (the new question is always included)
 }
 
 
