@@ -59,7 +59,7 @@ def read_settings(raw) -> dict:
     num("dense_floor", 0.0, 1.0, float)
     num("keyword_rank_limit", 1, 20, int)
     num("top_k", 1, 10, int)
-    num("history_limit", 0, 100, int)
+    num("history_exchanges", 0, 50, int)
     s["use_keyword_search"] = bool(raw.get("use_keyword_search", s["use_keyword_search"]))
     s["use_reranker"] = bool(raw.get("use_reranker", s["use_reranker"]))
     try:
@@ -82,13 +82,13 @@ def is_relevant(c: dict, s: dict) -> bool:
     )
 
 
-def trim_history(messages: list[dict], limit: int) -> list[dict]:
-    """Keep only the last `limit` messages (0 = keep everything). The conversation
-    should start with a user message, so drop a leading assistant message if the
-    cut landed on one."""
-    if limit <= 0 or len(messages) <= limit:
+def trim_history(messages: list[dict], exchanges: int) -> list[dict]:
+    """Keep the newest message plus the previous `exchanges` question/answer pairs."""
+    keep = 2 * exchanges + 1
+    if len(messages) <= keep:
         return messages
-    trimmed = messages[-limit:]
+    trimmed = messages[-keep:]
+    # A conversation should start with a user message; if the cut landed on an answer, drop it
     while len(trimmed) > 1 and trimmed[0].get("role") != "user":
         trimmed = trimmed[1:]
     return trimmed
