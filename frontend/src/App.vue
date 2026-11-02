@@ -815,7 +815,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Keyword search (hybrid)</strong>
-                    <p class="settings-hint">Also match exact words (ports, error codes, names), not only meaning. Off = meaning only.</p>
+                    <p class="settings-hint">Also match exact words. Off = meaning only.</p>
                   </div>
                   <label class="switch"><input type="checkbox" v-model="retrieval.use_keyword_search" /><span class="switch-slider"></span></label>
                 </div>
@@ -823,7 +823,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Reranker</strong>
-                    <p class="settings-hint">A second model re-reads the candidates against your question and picks the best. Slower; the first use downloads a model.</p>
+                    <p class="settings-hint">A second model re-reads the candidates against your question and picks the best.</p>
                     <p v-if="rerankState" class="settings-hint">
                       {{ rerankState === 'loading' ? 'Loading the reranker… (the first time this downloads it)' : rerankState === 'ready' ? '✓ Reranker ready' : rerankState }}
                     </p>
@@ -834,7 +834,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Minimum rerank score</strong>
-                    <p class="settings-hint">Optional. Drop passages the reranker scores below this. Leave blank until you've seen the scores in the backend log.</p>
+                    <p class="settings-hint">Optional. Drop passages the reranker scores below this.</p>
                   </div>
                   <input class="num-input" type="number" step="0.1" placeholder="off" v-model.number="retrieval.rerank_min_score" />
                 </div>
