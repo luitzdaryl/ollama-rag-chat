@@ -162,6 +162,7 @@ const modeLabel = computed(() => {
 const theme = ref(localStorage.getItem('theme') || 'dark')
 function applyTheme() {
   document.documentElement.setAttribute('data-theme', theme.value)
+  document.documentElement.style.colorScheme = theme.value // 'dark' or 'light'
   localStorage.setItem('theme', theme.value)
 }
 function toggleTheme() {
