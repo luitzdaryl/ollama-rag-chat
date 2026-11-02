@@ -576,7 +576,7 @@ onMounted(async () => {
       <input v-model="chatQuery" class="chat-search" type="search" placeholder="Search chats…" />
 
       <p v-if="storageFull" class="storage-warning">
-        Browser storage is full, so new messages are NOT being saved. Delete some old chats.
+        Browser storage is full, so new messages are NOT being saved. Delete some old chats
       </p>
 
       <div class="chat-list">
@@ -671,14 +671,14 @@ onMounted(async () => {
             </li>
           </ul>
         </template>
-        <p v-else class="no-documents">No documents uploaded yet — chat will answer from the model's general knowledge only.</p>
+        <p v-else class="no-documents">No documents uploaded yet — chat will answer from the model's general knowledge only</p>
       </div>
 
       <!-- Chat tab -->
       <template v-if="activeTab === 'chat' && activeChat">
         <div ref="chatWindowEl" class="chat-window" @click="handleChatClick">
           <p v-if="!activeChat.messages.length" class="empty-chat">
-            Ask a question about your documents — or switch the knowledge base off in Settings to chat with the model directly.
+            Ask a question about your documents — or switch the knowledge base off in Settings to chat with the model directly
           </p>
 
           <div
@@ -790,7 +790,7 @@ onMounted(async () => {
         <div class="toggle-row">
           <div>
             <h3>📚 Use Knowledge Base</h3>
-            <p class="settings-hint">When off, the assistant answers from its own knowledge only — no document retrieval.</p>
+            <p class="settings-hint">When off, the assistant answers from its own knowledge only — no document retrieval</p>
           </div>
           <label class="switch">
             <input type="checkbox" v-model="useKnowledgeBase" />
@@ -799,7 +799,7 @@ onMounted(async () => {
         </div>
 
         <h3>⚙️ RAG Instructions</h3>
-        <p class="settings-hint">Customize how the assistant should behave when answering from your uploaded documents.</p>
+        <p class="settings-hint">Customize how the assistant should behave when answering from your uploaded documents</p>
         <textarea v-model="promptInstruction" class="prompt-textarea" rows="6"></textarea>
         <button class="reset-button" @click="resetPromptInstruction">Reset to default</button>
  
@@ -815,7 +815,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Keyword search (hybrid)</strong>
-                    <p class="settings-hint">Also match exact words. Off = meaning only.</p>
+                    <p class="settings-hint">Match exact terms as well as meaning. Off = meaning only</p>
                   </div>
                   <label class="switch"><input type="checkbox" v-model="retrieval.use_keyword_search" /><span class="switch-slider"></span></label>
                 </div>
@@ -823,7 +823,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Reranker</strong>
-                    <p class="settings-hint">A second model re-reads the candidates against your question and picks the best.</p>
+                    <p class="settings-hint">A second model selects the best passages</p>
                     <p v-if="rerankState" class="settings-hint">
                       {{ rerankState === 'loading' ? 'Loading the reranker… (the first time this downloads it)' : rerankState === 'ready' ? '✓ Reranker ready' : rerankState }}
                     </p>
@@ -834,7 +834,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Minimum rerank score</strong>
-                    <p class="settings-hint">Optional. Drop passages the reranker scores below this.</p>
+                    <p class="settings-hint">Exclude passages below this score. Blank = disabled</p>
                   </div>
                   <input class="num-input" type="number" step="0.1" placeholder="off" v-model.number="retrieval.rerank_min_score" />
                 </div>
@@ -842,7 +842,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Passages sent to the model (Top-K)</strong>
-                    <p class="settings-hint">More = more context, but slower and noisier.</p>
+                    <p class="settings-hint">More = more context, but slower and noisier</p>
                   </div>
                   <input class="num-input" type="number" min="1" max="10" v-model.number="retrieval.top_k" />
                 </div>
@@ -857,7 +857,7 @@ onMounted(async () => {
                     <strong>Close-match threshold</strong> <em>{{ Number(retrieval.dense_threshold).toFixed(2) }}</em>
                     <input type="range" min="0" max="1" step="0.01" v-model.number="retrieval.dense_threshold" />
                   </label>
-                  <p class="settings-hint">A passage at least this similar to your question is always used. Higher = stricter, lower = more passages (and more noise).</p>
+                  <p class="settings-hint">Minimum similarity for automatic matches. Higher = stricter</p>
                 </div>
 
                 <div class="range-row">
@@ -865,13 +865,13 @@ onMounted(async () => {
                     <strong>Keyword-match floor</strong> <em>{{ Number(retrieval.dense_floor).toFixed(2) }}</em>
                     <input type="range" min="0" max="1" step="0.01" v-model.number="retrieval.dense_floor" />
                   </label>
-                  <p class="settings-hint">A keyword hit also needs at least this similarity, so a stray word match can't pull in an unrelated passage.</p>
+                  <p class="settings-hint">Minimum similarity for keyword matches</p>
                 </div>
 
                 <div class="setting-row">
                   <div>
-                    <strong>Keyword-rank limit</strong>
-                    <p class="settings-hint">A keyword hit only counts if it ranks in the top N keyword results.</p>
+                    <strong>Keyword-rank limit (Top-N)</strong>
+                    <p class="settings-hint">Only count keyword matches in the top N</p>
                   </div>
                   <input class="num-input" type="number" min="1" max="20" v-model.number="retrieval.keyword_rank_limit" />
                 </div>
@@ -879,7 +879,7 @@ onMounted(async () => {
                 <div class="setting-row">
                   <div>
                     <strong>Conversation memory (exchanges)</strong>
-                    <p class="settings-hint">Previous question-and-answer pairs the model sees with your new question. 0 = every question stands alone. Follow-up searches always look at the recent conversation, whatever this is set to.</p>
+                    <p class="settings-hint">Include previous Q&A pairs. 0 = no history</p>
                   </div>
                   <input class="num-input" type="number" min="0" max="50" v-model.number="retrieval.history_exchanges" />
                 </div>
