@@ -96,7 +96,15 @@ def trim_history(messages: list[dict], exchanges: int) -> list[dict]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    ensure_collection()
+    for attempt in range(1, 31):
+        try:
+            await asyncio.to_thread(ensure_collection)
+            break
+        except Exception as e:
+            print(f"[startup] Qdrant not ready ({type(e).__name__}), retry {attempt}/30")
+            await asyncio.sleep(2)
+    else:
+        raise RuntimeError("Qdrant is not reachable")
     yield
 
 
