@@ -111,6 +111,7 @@ function resetPromptInstruction() {
 }
 
 /* ───────── Retrieval settings (persisted) ───────── */
+
 const DEFAULT_RETRIEVAL = {
   dense_threshold: 0.45,
   dense_floor: 0.3,
@@ -119,13 +120,13 @@ const DEFAULT_RETRIEVAL = {
   use_keyword_search: true,
   use_reranker: false,
   rerank_min_score: null,
-  history_limit: 10,
+  history_exchanges: 5,
 }
-const retrieval = reactive({ ...DEFAULT_RETRIEVAL, ...loadJson('retrievalSettings', {}) })
-watch(retrieval, (v) => localStorage.setItem('retrievalSettings', JSON.stringify(v)), { deep: true })
-function resetRetrieval() {
-  Object.assign(retrieval, DEFAULT_RETRIEVAL)
-}
+const storedRetrieval = loadJson('retrievalSettings', {})
+// Known keys only, so renamed settings (like the old history_limit) can't linger
+const retrieval = reactive(
+  Object.fromEntries(Object.entries(DEFAULT_RETRIEVAL).map(([k, v]) => [k, storedRetrieval[k] ?? v]))
+)
 
 // Switching the reranker on asks the backend to load it (the first time that
 // downloads the model, which can take a while), so you see progress instead of
