@@ -1690,4 +1690,21 @@ onMounted(async () => {
 }
 .num-input:focus { outline: none; border-color: var(--color-accent); }
 
+/* Two columns when there's room (each at least 380px), one column otherwise: no media query needed */
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 0 32px;
+  align-items: start;
+}
+.adv-col { min-width: 0; }
+.adv-col h4 {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-secondary);
+}
+.adv-col > :last-child { border-bottom: none; }
+
 </style>
