@@ -7,7 +7,18 @@ Chat with your own documents, entirely on your own machine. Upload PDFs, Word, E
 ![Advanced retrieval settings](docs/settings.png)
 -->
 
-**Contents:** [Features](#features) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Using the app](#using-the-app) · [Configuration](#configuration) · [API](#api) · [Design notes](#design-notes) · [Known limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Project structure](#project-structure) · [Roadmap](#roadmap)
+**Contents:** 
+- [Features](#features) 
+- [Quick start](#quick-start) 
+- [How it works](#how-it-works)
+- [Using the app](#using-the-app)
+- [Configuration](#configuration)
+- [API](#api)
+- [Design notes](#design-notes)
+- [Known limitations](#known-limitations)
+- [Troubleshooting](#troubleshooting)
+- [Project structure](#project-structure)
+- [Roadmap](#roadmap)
 
 ## Features
 
@@ -49,7 +60,7 @@ ollama pull llama3.2      # or any chat model you prefer
 ### Run
 
 ```bash
-git clone https://github.com/<your-username>/ollama-rag-chat.git
+git clone https://github.com/luitzdaryl/ollama-rag-chat.git
 cd ollama-rag-chat
 docker compose up --build -d
 ```
