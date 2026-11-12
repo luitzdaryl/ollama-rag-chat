@@ -170,64 +170,209 @@ function toggleTheme() {
 }
 watch(theme, applyTheme)
 
-/* ───────── Chats: state + persistence ───────── */
-const CHATS_KEY = 'ragChat.chats'
-const ACTIVE_KEY = 'ragChat.activeChatId'
+/* ───────── Chats: state + server persistence ───────── */
+const ACTIVE_KEY = 'ragChat.activeChatId' // only remembers which chat was open
+const LEGACY_KEY = 'ragChat.chats'        // where chats lived before Postgres
+const IMPORTED_KEY = 'ragChat.importDone'
 
-function loadChats() {
-  const saved = loadJson(CHATS_KEY, [])
-  return Array.isArray(saved) ? saved : []
+// Chat: { id, title, createdAt, updatedAt, messages, loadError, deleted }
+// messages === null means "exists on the server, not opened yet" (loaded lazily)
+const chats = ref([])
+const chatsLoading = ref(true)
+const chatsError = ref('')
+const saveError = ref('')
+
+const activeChatId = ref(localStorage.getItem(ACTIVE_KEY) || '')
+const activeChat = computed(() => chats.value.find((c) => c.id === activeChatId.value))
+const activeMessages = computed(() => activeChat.value?.messages ?? [])
+const activeLoading = computed(
+  () => !!activeChat.value && activeChat.value.messages === null && !activeChat.value.loadError
+)
+watch(activeChatId, (id) => localStorage.setItem(ACTIVE_KEY, id))
+
+// Most recently active first, like ChatGPT
+const sortedChats = computed(() => [...chats.value].sort((a, b) => b.updatedAt - a.updatedAt))
+const newChatId = () => `chat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
+
+async function api(path, { method = 'GET', body } = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    method,
+    headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
+  if (!res.ok) {
+    let detail = ''
+    try {
+      const d = await res.json()
+      detail = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail)
+    } catch {}
+    const err = new Error((detail || `Server returned ${res.status}`).slice(0, 200))
+    err.status = res.status
+    throw err
+  }
+  return res.json()
+}
+const errText = (e) => (e instanceof TypeError ? 'cannot reach the backend' : e.message)
+
+/* Wire format <-> UI format */
+const toWireMessage = (m) => ({
+  role: m.role,
+  content: m.content ?? '',
+  timestamp: m.timestamp ?? null,
+  sources: m.sources ?? [],
+  search_query: m.searchQuery ?? null,
+  rerank_note: m.rerankNote ?? null,
+  model_name: m.modelName ?? null,
+  elapsed: m.elapsed || null,
+  stopped: !!m.stopped,
+  is_error: !!m.isError,
+})
+const fromWireMessage = (w) => ({
+  role: w.role,
+  content: w.content,
+  timestamp: w.timestamp,
+  sources: w.sources || [],
+  searchQuery: w.search_query,
+  rerankNote: w.rerank_note,
+  modelName: w.model_name,
+  elapsed: w.elapsed || '',
+  stopped: w.stopped,
+  isError: w.is_error,
+})
+const chatFromWire = (w) => ({
+  id: w.id,
+  title: w.title,
+  createdAt: w.created_at,
+  updatedAt: w.updated_at,
+  messages: null,
+  loadError: false,
+  deleted: false,
+})
+
+/* Saving. Saves of the same chat run strictly one after another, and each one sends
+   the chat's CURRENT state when it runs, so an older save can never overwrite a newer one. */
+const saveChains = new Map()
+
+function saveChat(chat) {
+  const prev = saveChains.get(chat.id) || Promise.resolve()
+  const next = prev.then(() => putChat(chat)) // putChat never rejects, so the chain can't break
+  saveChains.set(chat.id, next)
+  return next
 }
 
-const storageFull = ref(false)
-function saveChats() {
+async function putChat(chat) {
+  if (chat.deleted || !chat.messages) return
+  // Skip the answer that is still streaming; it is saved when it finishes
+  const messages = chat.messages.filter((m) => !m.pending)
+  if (!messages.length) return // never create empty chats on the server
   try {
-    localStorage.setItem(CHATS_KEY, JSON.stringify(chats.value))
-    storageFull.value = false
+    await api(`/api/chats/${chat.id}`, {
+      method: 'PUT',
+      body: { title: chat.title, created_at: chat.createdAt, messages: messages.map(toWireMessage) },
+    })
+    saveError.value = ''
   } catch (e) {
-    console.warn('Could not save chats:', e)
-    storageFull.value = true // surfaced in the sidebar so this never fails silently
+    saveError.value = errText(e)
   }
 }
 
-const chats = ref(loadChats())
-const activeChatId = ref(localStorage.getItem(ACTIVE_KEY) || '')
-const activeChat = computed(() => chats.value.find((c) => c.id === activeChatId.value))
+/* Loading */
+async function loadChatList() {
+  const data = await api('/api/chats')
+  const known = new Map(chats.value.map((c) => [c.id, c]))
+  const onServer = new Set(data.chats.map((w) => w.id))
+  const next = data.chats.map((w) => {
+    const existing = known.get(w.id)
+    if (!existing) return chatFromWire(w)
+    existing.updatedAt = Math.max(existing.updatedAt, w.updated_at)
+    return existing
+  })
+  // Keep empty drafts that exist only in this page
+  for (const c of chats.value) {
+    if (!onServer.has(c.id) && c.messages && c.messages.length === 0) next.push(c)
+  }
+  chats.value = next
+}
 
-// Save on any change, but not mid-stream: a deep watcher would re-serialize
-// every chat on every token. We save explicitly when the stream finishes.
-watch(chats, () => { if (!isStreaming.value) saveChats() }, { deep: true })
-watch(activeChatId, (id) => localStorage.setItem(ACTIVE_KEY, id))
+async function ensureLoaded(chat) {
+  if (!chat || chat.messages !== null) return
+  chat.loadError = false
+  try {
+    const data = await api(`/api/chats/${chat.id}`)
+    if (chat.messages === null) chat.messages = data.messages.map(fromWireMessage)
+  } catch {
+    chat.loadError = true
+  }
+}
 
-/* Sidebar search: matches chat titles AND message text */
+async function initChats() {
+  chatsLoading.value = true
+  chatsError.value = ''
+  try {
+    await loadChatList()
+  } catch (e) {
+    chatsError.value = `Could not load chats: ${errText(e)}.`
+    chatsLoading.value = false
+    return
+  }
+  if (!chats.value.length) createChat()
+  else if (!activeChat.value) activeChatId.value = sortedChats.value[0].id
+  chatsLoading.value = false
+  await ensureLoaded(activeChat.value)
+  scrollToBottom(true)
+}
+
+/* Search (server-side, debounced) */
 const chatQuery = ref('')
-const filteredChats = computed(() => {
-  const q = chatQuery.value.trim().toLowerCase()
-  if (!q) return chats.value
-  return chats.value.filter(
-    (c) =>
-      c.title.toLowerCase().includes(q) ||
-      c.messages.some((m) => (m.content || '').toLowerCase().includes(q))
-  )
+const searchHits = ref(null) // null = not searching, otherwise a Set of matching chat ids
+let searchSeq = 0
+let searchTimer = null
+watch(chatQuery, (q) => {
+  clearTimeout(searchTimer)
+  const term = q.trim()
+  if (!term) {
+    searchSeq++
+    searchHits.value = null
+    return
+  }
+  searchTimer = setTimeout(async () => {
+    const seq = ++searchSeq
+    try {
+      const data = await api(`/api/chats/search?q=${encodeURIComponent(term)}`)
+      if (seq === searchSeq) searchHits.value = new Set(data.ids)
+    } catch {
+      if (seq === searchSeq) searchHits.value = new Set()
+    }
+  }, 250)
 })
+const filteredChats = computed(() =>
+  searchHits.value === null ? sortedChats.value : sortedChats.value.filter((c) => searchHits.value.has(c.id))
+)
 
+/* Create / select / delete */
 function createChat() {
   chatQuery.value = ''
   // Don't pile up empty chats; reuse the current one if it's still empty
-  if (activeChat.value && activeChat.value.messages.length === 0) {
+  if (activeChat.value?.messages && activeChat.value.messages.length === 0) {
     activeTab.value = 'chat'
     return
   }
-  const chat = { id: `chat_${Date.now()}`, title: 'New Chat', messages: [], createdAt: Date.now() }
+  const now = Date.now()
+  // A new chat exists only in this page until its first message is sent
+  const chat = { id: newChatId(), title: 'New Chat', createdAt: now, updatedAt: now, messages: [], loadError: false, deleted: false }
   chats.value.unshift(chat)
   activeChatId.value = chat.id
   activeTab.value = 'chat'
 }
 
-function selectChat(id) {
+async function selectChat(id) {
   cancelEdit()
+  // Leaving an empty draft behind: drop it so drafts don't accumulate
+  chats.value = chats.value.filter((c) => c.id === id || !c.messages || c.messages.length > 0)
   activeChatId.value = id
   activeTab.value = 'chat'
+  await ensureLoaded(activeChat.value)
+  if (activeChatId.value === id) scrollToBottom(true)
 }
 
 async function deleteChat(id) {
@@ -236,23 +381,30 @@ async function deleteChat(id) {
 
   const ok = await askConfirm({
     title: 'Delete this chat?',
-    message: `"${chat.title}" and all of its messages will be permanently deleted. This can't be undone.`,
+    message: `"${chat.title}" and all of its messages will be permanently deleted from the database. This can't be undone.`,
   })
   if (!ok) return
 
   if (isStreaming.value && streamingChatId === id) stopGeneration()
+  chat.deleted = true // from now on, no queued save may re-create it
+  await (saveChains.get(id) ?? Promise.resolve())
+  try {
+    await api(`/api/chats/${id}`, { method: 'DELETE' })
+  } catch (e) {
+    chat.deleted = false
+    saveError.value = `could not delete the chat (${errText(e)})`
+    return
+  }
+  saveChains.delete(id)
+
   const wasActive = id === activeChatId.value
   if (wasActive) cancelEdit() // otherwise the edit box would reappear on the next chat
   chats.value = chats.value.filter((c) => c.id !== id)
   if (!chats.value.length) createChat()
-  else if (wasActive) activeChatId.value = chats.value[0].id
+  else if (wasActive) selectChat(sortedChats.value[0].id)
 }
 
-// First launch, or the saved active id no longer exists
-if (!chats.value.length) createChat()
-else if (!activeChat.value) activeChatId.value = chats.value[0].id
-
-/* ───────── Rename ───────── */
+/* Rename */
 const renamingChatId = ref(null)
 const renameText = ref('')
 
@@ -260,16 +412,66 @@ function startRename(chat) {
   renamingChatId.value = chat.id
   renameText.value = chat.title
 }
-function confirmRename() {
+async function confirmRename() {
   // Guard: Enter, then the input unmounting and firing blur, would run this twice
   if (renamingChatId.value === null) return
   const chat = chats.value.find((c) => c.id === renamingChatId.value)
-  const name = renameText.value.trim()
-  if (chat && name) chat.title = name
+  const name = renameText.value.trim().slice(0, 200)
   renamingChatId.value = null
+  if (!chat || !name || name === chat.title) return
+
+  chat.title = name
+  if (chat.messages && chat.messages.length === 0) return // an unsaved draft: the title is saved with its first message
+  try {
+    await api(`/api/chats/${chat.id}`, { method: 'PATCH', body: { title: name } })
+    saveError.value = ''
+  } catch (e) {
+    if (e.status === 404 && chat.messages) await saveChat(chat) // never reached the server before: save it all
+    else saveError.value = errText(e)
+  }
 }
 function cancelRename() {
   renamingChatId.value = null
+}
+
+/* One-time import of chats that were stored in this browser before Postgres */
+const legacyChats = ref(
+  (() => {
+    if (localStorage.getItem(IMPORTED_KEY)) return []
+    const raw = loadJson(LEGACY_KEY, [])
+    return Array.isArray(raw) ? raw.filter((c) => c && Array.isArray(c.messages) && c.messages.length) : []
+  })()
+)
+const importing = ref(false)
+const importNote = ref('')
+
+async function importLegacyChats() {
+  importing.value = true
+  importNote.value = ''
+  try {
+    const payload = legacyChats.value.map((c) => ({
+      id: c.id,
+      title: c.title || 'New Chat',
+      created_at: c.createdAt ?? null,
+      messages: c.messages.map(toWireMessage),
+    }))
+    const result = await api('/api/chats/import', { method: 'POST', body: { chats: payload } })
+    localStorage.setItem(IMPORTED_KEY, '1')
+    legacyChats.value = []
+    importNote.value =
+      `Imported ${result.imported} chat(s)` +
+      (result.skipped ? `; ${result.skipped} were already in the database` : '') +
+      '. The copy in this browser is untouched.'
+    await loadChatList()
+  } catch (e) {
+    importNote.value = `Import failed: ${errText(e)}`
+  } finally {
+    importing.value = false
+  }
+}
+function dismissImport() {
+  localStorage.setItem(IMPORTED_KEY, '1')
+  legacyChats.value = []
 }
 
 /* ───────── Edit + resend a user message ───────── */
