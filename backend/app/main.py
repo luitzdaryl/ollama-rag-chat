@@ -25,6 +25,9 @@ from vector_store import (
     store_chunks,
 )
 
+from chats import router as chats_router
+from database import close_db, init_db
+
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
 RERANK_POOL = 20  # at most this many passing passages go through the reranker
@@ -96,6 +99,7 @@ def trim_history(messages: list[dict], exchanges: int) -> list[dict]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    await asyncio.to_thread(init_db)  # waits up to 60s for Postgres, then applies migrations
     for attempt in range(1, 31):
         try:
             await asyncio.to_thread(ensure_collection)
@@ -106,6 +110,7 @@ async def lifespan(app: FastAPI):
     else:
         raise RuntimeError("Qdrant is not reachable")
     yield
+    close_db()
 
 
 app = FastAPI(title="Ollama RAG Chat Backend", lifespan=lifespan)
