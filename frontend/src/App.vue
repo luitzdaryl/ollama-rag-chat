@@ -525,19 +525,22 @@ function handleComposerKey(e) {
 }
 
 /* ───────── Sending, streaming, stopping, regenerating ───────── */
+
 async function sendMessage(overrideText) {
   // overrideText is only a string when called from saveEdit; a click handler
   // would pass an event object, so check the type rather than truthiness.
   const text = (typeof overrideText === 'string' ? overrideText : userInput.value).trim()
   if (!text || isStreaming.value) return
+  
   const chat = activeChat.value
-  if (!chat) return
+  if (!chat || !chat.messages) return // not opened yet
 
   chat.messages.push({ role: 'user', content: text, timestamp: Date.now() })
+  chat.updatedAt = Date.now()
   if (chat.title === 'New Chat') {
     chat.title = text.length > 35 ? text.slice(0, 35) + '…' : text
   }
-  saveChats() // persist the question right away, in case the tab closes mid-answer
+  saveChat(chat) // not awaited: runs in the background
 
   if (typeof overrideText !== 'string') {
     userInput.value = ''
