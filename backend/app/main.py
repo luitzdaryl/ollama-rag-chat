@@ -123,6 +123,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(chats_router)
+
 
 @app.get("/api/health")
 async def health():
