@@ -657,7 +657,9 @@ async function generateAnswer(chat) {
     isStreaming.value = false
     abortController = null
     streamingChatId = null
-    saveChats()
+    assistantMessage.pending = false
+    chat.updatedAt = Date.now()
+    saveChat(chat)
     await nextTick()
     if (activeTab.value === 'chat' && editingIndex.value === null) composerEl.value?.focus()
   }
