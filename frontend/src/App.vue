@@ -580,6 +580,7 @@ async function generateAnswer(chat) {
     elapsed: '',
     modelName: selectedModel.value,
     isError: false,
+    pending: true, // used to skip saving this message until it finishes streaming
     stopped: false,
   })
   chat.messages.push(assistantMessage)
