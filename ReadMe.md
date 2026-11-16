@@ -3,9 +3,17 @@
 Chat with your own documents, entirely on your own machine. Upload PDFs, Word, Excel, CSV, Markdown or text files, ask questions in plain language, and get answers grounded in those files, with the exact passages each answer came from shown underneath. Language models run locally through [Ollama](https://ollama.com), and your documents and chats are stored in databases on your own computer.
 
 <!-- Add screenshots to a docs/ folder, then uncomment:
-![Chat with sources](docs/chat.png)
-![Advanced retrieval settings](docs/settings.png)
+![Chat with sources](docs/chat-dark.png)
+![Chat with sources](docs/chat-light.png)
+![Advanced retrieval settings](docs/settings-dark.png)
+![Advanced retrieval settings](docs/settings-light.png)
 -->
+
+![Chat with sources](docs/chat-dark.png)
+![Chat with sources](docs/chat-light.png)
+![Advanced retrieval settings](docs/settings-dark.png)
+![Advanced retrieval settings](docs/settings-light.png)
+
 
 **Contents:** [Features](#features) · [Quick start](#quick-start) · [How it works](#how-it-works) · [Using the app](#using-the-app) · [Configuration](#configuration) · [API](#api) · [Design notes](#design-notes) · [Known limitations](#known-limitations) · [Troubleshooting](#troubleshooting) · [Project structure](#project-structure) · [Roadmap](#roadmap)
 
