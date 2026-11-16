@@ -56,8 +56,8 @@ Chat with your own documents, entirely on your own machine. Upload PDFs, Word, E
 - [Ollama](https://ollama.com) running on the host machine, with an embedding model and at least one chat model:
 
 ```bash
-ollama pull bge-m3   embeddinggemma:latest     # required: used to embed documents and questions or any embedding model you prefer 
-ollama pull llama3.2  ministral-3:3b   # or any chat model you prefer
+ollama pull bge-m3 embeddinggemma:latest     # required: used to embed documents and questions or any embedding model you prefer 
+ollama pull llama3.2 ministral-3:3b   # or any chat model you prefer
 ```
 
 ### Run
