@@ -784,12 +784,27 @@ onMounted(async () => {
       <button class="new-chat-btn" @click="createChat">＋ New chat</button>
       <input v-model="chatQuery" class="chat-search" type="search" placeholder="Search chats…" />
 
-      <p v-if="storageFull" class="storage-warning">
-        Browser storage is full, so new messages are NOT being saved. Delete some old chats
+      <div v-if="legacyChats.length" class="import-banner">
+        <p>Found {{ legacyChats.length }} chat{{ legacyChats.length === 1 ? '' : 's' }} saved in this browser.</p>
+        <div class="import-actions">
+          <button class="import-btn" :disabled="importing" @click="importLegacyChats">
+            {{ importing ? 'Importing…' : 'Import to database' }}
+          </button>
+          <button class="link-btn" :disabled="importing" @click="dismissImport">Dismiss</button>
+        </div>
+      </div>
+      <p v-if="importNote" class="import-note">{{ importNote }}</p>
+
+      <p v-if="saveError" class="storage-warning">
+        Not saved: {{ saveError }}. Your latest messages exist only on this page until a save succeeds.
       </p>
 
       <div class="chat-list">
-        <p v-if="chatQuery && !filteredChats.length" class="no-results">
+        <p v-if="chatsLoading" class="no-results">Loading chats…</p>
+        <p v-else-if="chatsError" class="no-results">
+          {{ chatsError }} <button class="link-btn" @click="initChats">Retry</button>
+        </p>
+        <p v-else-if="chatQuery && !filteredChats.length" class="no-results">
           No chats match "{{ chatQuery }}"
         </p>
         <div
