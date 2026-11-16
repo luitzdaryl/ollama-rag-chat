@@ -899,10 +899,18 @@ onMounted(async () => {
       </div>
 
       <!-- Chat tab -->
+      <div v-if="activeTab === 'chat' && !activeChat" class="chat-window">
+        <p class="empty-chat">{{ chatsError || 'Loading…' }}</p>
+      </div>
       <template v-if="activeTab === 'chat' && activeChat">
         <div ref="chatWindowEl" class="chat-window" @click="handleChatClick">
-          <p v-if="!activeChat.messages.length" class="empty-chat">
-            Ask a question about your documents — or switch the knowledge base off in Settings to chat with the model directly
+          <p v-if="activeLoading" class="empty-chat">Loading messages…</p>
+          <p v-else-if="activeChat.loadError" class="empty-chat">
+            Could not load this chat.
+            <button class="link-btn" @click="ensureLoaded(activeChat)">Retry</button>
+          </p>
+          <p v-else-if="!activeMessages.length" class="empty-chat">
+            Ask a question about your documents — or switch the knowledge base off in Settings to chat with the model directly.
           </p>
 
           <div
