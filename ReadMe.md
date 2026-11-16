@@ -65,16 +65,26 @@ Open **http://localhost:8080**. The first build takes a few minutes. If you hit 
 
 All four ports are bound to `127.0.0.1`, so they are reachable from your machine only. Do not change that without adding authentication first (see [Known limitations](#known-limitations)).
 
-Useful commands (run from the project folder):
+### Daily use
 
-```bash
-docker compose ps                 # state of every service
-docker compose logs -f backend    # watch the backend
-docker compose down               # stop (documents, chats and model cache are kept)
-docker compose down -v            # stop AND delete documents, chats and the model cache
-```
+| I want to… | Command (from the project folder) |
+|---|---|
+| Start | `docker compose up -d` |
+| Start after changing code or `requirements.txt` | `docker compose up --build -d` |
+| Pause (keeps containers) | `docker compose stop`, then `docker compose start` |
+| Stop and remove containers (keeps all data) | `docker compose down` |
+| Delete everything: chats, documents, model cache | `docker compose down -v` |
+| See state / logs | `docker compose ps` / `docker compose logs -f backend` |
 
-**Platform notes.** Developed and tested on macOS (Apple Silicon) with Docker Desktop. Ollama stays outside Docker on purpose: containers on macOS cannot use the GPU. On Linux, Ollama must listen on an address the container can reach (`OLLAMA_HOST=0.0.0.0`); Linux and Windows are untested.
+Docker Desktop and Ollama must be running first. Containers use `restart: unless-stopped`: after a reboot they come back when Docker Desktop starts, unless you stopped them with `docker compose stop`.
+
+`http://localhost:8080` (Docker) and `http://localhost:5173` (`npm run dev`) show the same chats and documents, but UI settings (theme, retrieval options, instruction text) are stored per address.
+
+### Platform notes
+
+- **macOS (Apple Silicon):** developed and tested here. Ollama stays outside Docker because containers on macOS cannot use the GPU.
+- **Windows:** untested. Use Docker Desktop (WSL2) and Ollama for Windows. If the model dropdown is empty, set `OLLAMA_HOST=0.0.0.0` for Ollama and allow it through the firewall. Raise the WSL2 memory limit in `%UserProfile%\.wslconfig` if the backend is killed. Running without Docker needs `uvloop` removed or marked `sys_platform != "win32"` in `requirements.txt`.
+- **Linux:** untested. Install Docker Engine with the Compose plugin. Ollama must listen on an address the container can reach (`OLLAMA_HOST=0.0.0.0`, restricted by a firewall), because `host.docker.internal` does not reach `127.0.0.1` on Linux.
 
 ### Where your data lives
 
@@ -90,11 +100,13 @@ Your knowledge base can always be rebuilt by uploading the files again, so chats
 
 ```bash
 # back up
-docker compose exec -T postgres pg_dump -U rag --clean --if-exists ragchat > chats-backup.sql
+docker compose exec postgres pg_dump -U rag --clean --if-exists -f /tmp/chats-backup.sql ragchat
+docker compose cp postgres:/tmp/chats-backup.sql ./chats-backup.sql
 
 # restore (stop the backend first so nothing writes during the restore)
 docker compose stop backend
-docker compose exec -T postgres psql -U rag -d ragchat < chats-backup.sql
+docker compose cp ./chats-backup.sql postgres:/tmp/chats-backup.sql
+docker compose exec postgres psql -U rag -d ragchat -f /tmp/chats-backup.sql
 docker compose start backend
 ```
 
