@@ -1939,4 +1939,29 @@ onMounted(async () => {
 }
 .adv-col > :last-child { border-bottom: none; }
 
+.import-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  border: 1px solid var(--color-accent);
+  border-radius: 8px;
+}
+.import-banner p { margin: 0; }
+.import-actions { display: flex; align-items: center; gap: 10px; }
+.import-btn {
+  background: var(--color-accent);
+  color: var(--color-accent-text);
+  border: none;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.import-btn:disabled { opacity: 0.6; cursor: wait; }
+.import-note { margin: 0; font-size: 0.75rem; line-height: 1.4; color: var(--color-text-secondary); }
+
 </style>
