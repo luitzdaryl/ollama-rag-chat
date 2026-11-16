@@ -10,19 +10,18 @@ Chat with your own documents, entirely on your own machine. Upload PDFs, Word, E
 ![Advanced retrieval settings](docs/settings-light.png)
 -->
 
-
 **Contents:** 
-· [Features](#features) 
-· [Quick start](#quick-start) 
-· [How it works](#how-it-works) 
-· [Using the app](#using-the-app) 
-· [Configuration](#configuration) 
-· [API](#api) 
-· [Design notes](#design-notes) 
-· [Known limitations](#known-limitations) 
-· [Troubleshooting](#troubleshooting) 
-· [Project structure](#project-structure) 
-· [Roadmap](#roadmap)
+- [Features](#features) 
+- [Quick start](#quick-start) 
+- [How it works](#how-it-works) 
+- [Using the app](#using-the-app) 
+- [Configuration](#configuration) 
+- [API](#api) 
+- [Design notes](#design-notes) 
+- [Known limitations](#known-limitations) 
+- [Troubleshooting](#troubleshooting) 
+- [Project structure](#project-structure) 
+- [Roadmap](#roadmap)
 
 ## Features
 
