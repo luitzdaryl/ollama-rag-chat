@@ -56,14 +56,14 @@ Chat with your own documents, entirely on your own machine. Upload PDFs, Word, E
 - [Ollama](https://ollama.com) running on the host machine, with an embedding model and at least one chat model:
 
 ```bash
-ollama pull bge-m3        # required: used to embed documents and questions
-ollama pull llama3.2      # or any chat model you prefer
+ollama pull bge-m3   embeddinggemma:latest     # required: used to embed documents and questions or any embedding model you prefer 
+ollama pull llama3.2  ministral-3:3b   # or any chat model you prefer
 ```
 
 ### Run
 
 ```bash
-git clone https://github.com/<your-username>/ollama-rag-chat.git
+git clone https://github.com/luitzdaryl/ollama-rag-chat.git
 cd ollama-rag-chat
 docker compose up --build -d
 ```
