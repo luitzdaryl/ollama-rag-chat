@@ -762,6 +762,7 @@ function fmtDate(iso) {
 
 onMounted(async () => {
   applyTheme()
+  initChats() // don't await: runs in the background
   try {
     const res = await fetch(`${API_BASE}/api/models`)
     models.value = await res.json()
@@ -773,7 +774,7 @@ onMounted(async () => {
     console.error('Could not load models:', e)
   }
   await loadDocuments()
-  scrollToBottom(true)
+  
 })
 </script>
 <template>
