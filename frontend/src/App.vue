@@ -914,7 +914,7 @@ onMounted(async () => {
           </p>
 
           <div
-            v-for="(msg, i) in activeChat.messages"
+            v-for="(msg, i) in activeMessages"
             :key="i"
             class="message-wrap"
             :class="msg.role === 'user' ? 'message-wrap--user' : 'message-wrap--assistant'">
@@ -963,7 +963,7 @@ onMounted(async () => {
                   title="Edit and resend"
                   @click="startEdit(i)">✎ Edit</button>
                 <button
-                  v-if="msg.role === 'assistant' && i === activeChat.messages.length - 1 && !isStreaming"
+                  v-if="msg.role === 'assistant' && i === activeMessages.length - 1 && !isStreaming"
                   class="meta-btn"
                   title="Generate a new answer"
                   @click="regenerate">↻ Regenerate</button>
