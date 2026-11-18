@@ -2,7 +2,7 @@
 import { ref, reactive, computed, onMounted, watch, nextTick } from 'vue'
 import { renderMarkdown } from './markdown.js'
 
-const API_BASE = 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const META_MARKER = '__META__' // first line of every /api/chat stream (see backend)
 
 // Custom directive: <input v-focus /> focuses the element when it appears
