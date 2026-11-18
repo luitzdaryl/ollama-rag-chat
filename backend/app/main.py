@@ -112,8 +112,15 @@ async def lifespan(app: FastAPI):
     yield
     close_db()
 
+# ───────────────────────── FastAPI app ─────────────────────────
 
-app = FastAPI(title="Ollama RAG Chat Backend", lifespan=lifespan)
+app = FastAPI(
+    title="Ollama RAG Chat Backend",
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
+    redoc_url=None,
+)
 
 # Allows the Vue frontend (different port) to call this API from the browser
 app.add_middleware(
