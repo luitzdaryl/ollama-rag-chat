@@ -30,7 +30,7 @@ services:
     build: ./backend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:8000:8000" # dev/debug only: remove before exposing the app
     environment:
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
       - QDRANT_HOST=qdrant
@@ -58,7 +58,7 @@ services:
     build: ./frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8080:80" # the only way in. Widening to "8080:80" (LAN) is safe only once login exists
     depends_on:
       - backend
 
