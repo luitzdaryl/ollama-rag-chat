@@ -28,6 +28,11 @@ from vector_store import (
 from chats import router as chats_router
 from database import close_db, init_db
 
+from fastapi import Depends
+from auth import ALLOWED_ORIGINS, admin_router, auth_router, check_origin, current_user
+
+AUTH = [Depends(current_user)]
+
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".xlsx", ".csv"}
 RERANK_POOL = 20  # at most this many passing passages go through the reranker
