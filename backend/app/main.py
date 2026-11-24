@@ -145,7 +145,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chats_router)
+app.include_router(auth_router)
+app.include_router(admin_router)
+app.include_router(chats_router, dependencies=[Depends(current_user)])
 
 
 @app.get("/api/health")
