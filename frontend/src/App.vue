@@ -760,11 +760,55 @@ function fmtDate(iso) {
   return new Date(iso).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
-onMounted(async () => {
-  applyTheme()
-  initChats() // don't await: runs in the background
+/* ───────── Accounts: sign-in, setup links, session handling ───────── */
+const me = ref(null) // the signed-in user, or null
+const authState = ref('loading') // loading | signedOut | ready | error | setupLoading | setup | setupInvalid
+const authError = ref('')
+const needsAdmin = ref(false)
+const loginForm = reactive({ username: '', password: '' })
+const loginError = ref('')
+const loginBusy = ref(false)
+const setupToken = ref('')
+const setupInfo = ref(null) // { purpose: 'invite' | 'password', username, display_name }
+const setupForm = reactive({ username: '', display_name: '', email: '', password: '', confirm: '' })
+const setupError = ref('')
+const setupBusy = ref(false)
+
+// Every request to the backend goes through here, so an ended session is noticed everywhere
+async function apiFetch(path, options = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    credentials: API_BASE ? 'include' : 'same-origin',
+    ...options,
+  })
+  if (res.status === 401 && me.value) endSession('Your session has ended. Please sign in again.')
+  return res
+}
+
+function endSession(message = '') {
+  abortController?.abort()
+  chats.value = []
+  documents.value = []
+  models.value = []
+  chatsLoading.value = true
+  chatsError.value = ''
+  activeTab.value = 'chat'
+  me.value = null
+  loginError.value = message
+  authState.value = 'signedOut'
+}
+
+async function signOut() {
   try {
-    const res = await apiFetch(`/api/models`)
+    await api('/api/auth/logout', { method: 'POST' })
+  } catch {}
+  endSession()
+}
+
+async function startApp() {
+  initChats()
+  try {
+    const res = await apiFetch('/api/models')
+    if (!res.ok) throw new Error(`models: status ${res.status}`)
     models.value = await res.json()
     const saved = localStorage.getItem('selectedModel')
     if (models.value.length > 0) {
@@ -774,8 +818,175 @@ onMounted(async () => {
     console.error('Could not load models:', e)
   }
   await loadDocuments()
-  
+}
+
+async function bootAuth() {
+  authState.value = 'loading'
+  // A setup link looks like http://host/#setup=TOKEN. Everything after "#" stays in the browser.
+  const m = location.hash.match(/^#setup=([A-Za-z0-9_-]+)$/)
+  if (m) {
+    setupToken.value = m[1]
+    history.replaceState(null, '', location.pathname + location.search) // take the secret out of the address bar and history
+    authState.value = 'setupLoading'
+    try {
+      setupInfo.value = await api('/api/auth/setup/check', { method: 'POST', body: { token: setupToken.value } })
+      authState.value = 'setup'
+    } catch (e) {
+      setupError.value = e.status === 404 ? e.message : `Could not check the link: ${errText(e)}.`
+      authState.value = 'setupInvalid'
+    }
+    return
+  }
+  try {
+    me.value = await api('/api/auth/me')
+    authState.value = 'ready'
+    await startApp()
+  } catch (e) {
+    if (e.status === 401) {
+      authState.value = 'signedOut'
+      try {
+        needsAdmin.value = (await api('/api/auth/bootstrap')).needs_admin
+      } catch {}
+    } else {
+      authError.value = `Could not reach the server: ${errText(e)}.`
+      authState.value = 'error'
+    }
+  }
+}
+
+function goToLogin() {
+  authState.value = 'signedOut'
+}
+
+async function login() {
+  loginBusy.value = true
+  loginError.value = ''
+  try {
+    me.value = await api('/api/auth/login', {
+      method: 'POST',
+      body: { username: loginForm.username.trim(), password: loginForm.password },
+    })
+    loginForm.password = ''
+    authState.value = 'ready'
+    await startApp()
+  } catch (e) {
+    const text = errText(e)
+    loginError.value = text.charAt(0).toUpperCase() + text.slice(1)
+  } finally {
+    loginBusy.value = false
+  }
+}
+
+async function completeSetup() {
+  setupError.value = ''
+  if (setupForm.password !== setupForm.confirm) {
+    setupError.value = 'The two passwords do not match.'
+    return
+  }
+  setupBusy.value = true
+  try {
+    const body = { token: setupToken.value, password: setupForm.password }
+    if (setupInfo.value.purpose === 'invite') {
+      body.username = setupForm.username.trim()
+      body.display_name = setupForm.display_name.trim()
+      if (setupForm.email.trim()) body.email = setupForm.email.trim()
+    }
+    me.value = await api('/api/auth/setup/complete', { method: 'POST', body })
+    Object.assign(setupForm, { username: '', display_name: '', email: '', password: '', confirm: '' })
+    authState.value = 'ready'
+    await startApp()
+  } catch (e) {
+    const text = errText(e)
+    setupError.value = text.charAt(0).toUpperCase() + text.slice(1)
+  } finally {
+    setupBusy.value = false
+  }
+}
+
+onMounted(async () => {
+  applyTheme()
+  await bootAuth()
 })
+
+/* ───────── Admin tab ───────── */
+const adminUsers = ref([])
+const adminLinks = ref([])
+const adminError = ref('')
+const newLink = ref(null) // { label, url, expires_at }: the raw link exists only in this response, never again
+const linkCopied = ref(false)
+const inviteNote = ref('')
+const newUser = reactive({ username: '', display_name: '', role: 'user' })
+
+async function loadAdmin() {
+  adminError.value = ''
+  try {
+    const [u, l] = await Promise.all([api('/api/admin/users'), api('/api/admin/links')])
+    adminUsers.value = u.users
+    adminLinks.value = l.links
+  } catch (e) {
+    adminError.value = errText(e)
+  }
+}
+watch(activeTab, (tab) => { if (tab === 'admin') loadAdmin() })
+
+async function adminAction(fn) {
+  adminError.value = ''
+  try {
+    await fn()
+    await loadAdmin()
+  } catch (e) {
+    adminError.value = errText(e)
+  }
+}
+const createInvite = () =>
+  adminAction(async () => {
+    const r = await api('/api/admin/invites', { method: 'POST', body: { note: inviteNote.value.trim() || null } })
+    newLink.value = { label: 'Invite link', url: r.url, expires_at: r.expires_at }
+    inviteNote.value = ''
+  })
+const createUser = () =>
+  adminAction(async () => {
+    const r = await api('/api/admin/users', {
+      method: 'POST',
+      body: { username: newUser.username.trim(), display_name: newUser.display_name.trim(), role: newUser.role },
+    })
+    newLink.value = { label: `Setup link for ${r.user.username}`, url: r.url, expires_at: r.expires_at }
+    Object.assign(newUser, { username: '', display_name: '', role: 'user' })
+  })
+const resetLink = (u) =>
+  adminAction(async () => {
+    const r = await api(`/api/admin/users/${u.id}/reset-link`, { method: 'POST' })
+    newLink.value = { label: `Password link for ${u.username}`, url: r.url, expires_at: r.expires_at }
+  })
+async function setUserStatus(u, status) {
+  if (status === 'disabled') {
+    const ok = await askConfirm({
+      title: `Disable ${u.username}?`,
+      message: 'They are signed out immediately and cannot sign in until you enable the account again.',
+      confirmLabel: 'Disable',
+    })
+    if (!ok) return
+  }
+  adminAction(() => api(`/api/admin/users/${u.id}`, { method: 'PATCH', body: { status } }))
+}
+async function removeUser(u) {
+  const ok = await askConfirm({
+    title: `Delete ${u.username}?`,
+    message: 'The account and its sign-in links are permanently deleted.',
+    confirmLabel: 'Delete',
+  })
+  if (!ok) return
+  adminAction(() => api(`/api/admin/users/${u.id}`, { method: 'DELETE' }))
+}
+const revokeLink = (l) => adminAction(() => api(`/api/admin/links/${l.id}`, { method: 'DELETE' }))
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(newLink.value.url)
+    linkCopied.value = true
+    setTimeout(() => { linkCopied.value = false }, 1500)
+  } catch {} // plain-http addresses other than localhost can't use the clipboard: select the text instead
+}
+
 </script>
 <template>
   <div class="shell">
