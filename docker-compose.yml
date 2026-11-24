@@ -38,6 +38,9 @@ services:
       - DATABASE_URL=postgresql://rag:${POSTGRES_PASSWORD:-ragchat_dev}@postgres:5432/ragchat
       - FASTEMBED_CACHE_PATH=/models
       - RERANK_MODEL=BAAI/bge-reranker-v2-m3
+      - PUBLIC_URL=${PUBLIC_URL:-http://localhost:8080}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173,http://127.0.0.1:5173}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
