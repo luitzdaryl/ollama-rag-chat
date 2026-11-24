@@ -138,7 +138,7 @@ watch(
     if (!on) { rerankState.value = ''; return }
     rerankState.value = 'loading'
     try {
-      const res = await fetch(`${API_BASE}/api/rerank/warmup`, { method: 'POST' })
+      const res = await apiFetch(`/api/rerank/warmup`, { method: 'POST' })
       const data = await res.json()
       rerankState.value = data.ready ? 'ready' : `Reranker unavailable: ${data.error || 'model could not load'}`
     } catch {
@@ -195,7 +195,7 @@ const sortedChats = computed(() => [...chats.value].sort((a, b) => b.updatedAt -
 const newChatId = () => `chat_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`
 
 async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await apiFetch(`${path}`, {
     method,
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : undefined,
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -591,7 +591,7 @@ async function generateAnswer(chat) {
   isStreaming.value = true
 
   try {
-    const response = await fetch(`${API_BASE}/api/chat`, {
+    const response = await apiFetch(`/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       signal: abortController.signal,
@@ -695,7 +695,7 @@ async function handleChatClick(e) {
 /* ───────── Documents ───────── */
 async function loadDocuments() {
   try {
-    const res = await fetch(`${API_BASE}/api/documents`)
+    const res = await apiFetch(`/api/documents`)
     if (!res.ok) throw new Error(`status ${res.status}`)
     documents.value = (await res.json()).documents
     // Forget exclusions for files that no longer exist
@@ -715,7 +715,7 @@ async function handleFileUpload(event) {
   try {
     const formData = new FormData()
     formData.append('file', file)
-    const res = await fetch(`${API_BASE}/api/documents/upload`, { method: 'POST', body: formData })
+    const res = await apiFetch(`/api/documents/upload`, { method: 'POST', body: formData })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error(err.detail || `Upload failed (${res.status})`)
@@ -736,7 +736,7 @@ async function deleteDocument(filename) {
     confirmLabel: 'Remove',
   })
   if (!ok) return
-  await fetch(`${API_BASE}/api/documents/${encodeURIComponent(filename)}`, { method: 'DELETE' })
+  await apiFetch(`/api/documents/${encodeURIComponent(filename)}`, { method: 'DELETE' })
   await loadDocuments()
 }
 
@@ -764,7 +764,7 @@ onMounted(async () => {
   applyTheme()
   initChats() // don't await: runs in the background
   try {
-    const res = await fetch(`${API_BASE}/api/models`)
+    const res = await apiFetch(`/api/models`)
     models.value = await res.json()
     const saved = localStorage.getItem('selectedModel')
     if (models.value.length > 0) {
