@@ -14,3 +14,6 @@ dist/
 # Editor
 .vscode/
 .idea/
+# Database backups
+chats-backup.sql
+*-backup.sql
