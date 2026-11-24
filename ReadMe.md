@@ -393,3 +393,4 @@ ollama-rag-chat/
 ## Acknowledgements
 
 Built on [Ollama](https://ollama.com), [Qdrant](https://qdrant.tech), [PostgreSQL](https://www.postgresql.org), [FastEmbed](https://github.com/qdrant/fastembed), and the `bge-m3` and `bge-reranker` models from BAAI.
+
