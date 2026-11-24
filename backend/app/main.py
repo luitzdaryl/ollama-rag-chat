@@ -154,8 +154,7 @@ app.include_router(chats_router, dependencies=[Depends(current_user)])
 async def health():
     return {"status": "Ok-Backend is running"}
 
-
-@app.get("/api/models")
+@app.get("/api/models", dependencies=AUTH)
 async def list_models():
     """Ask Ollama which models are installed, return just their names."""
     async with httpx.AsyncClient() as client:
@@ -165,7 +164,7 @@ async def list_models():
     return [m["name"] for m in data.get("models", [])]
 
 
-@app.post("/api/rerank/warmup")
+@app.post("/api/rerank/warmup", dependencies=AUTH)
 def rerank_warmup():
     """Load (and on first use, download) the reranker. Called when the toggle is switched on."""
     return warmup_reranker()
@@ -232,7 +231,7 @@ async def rewrite_followup(model: str, history: list[dict], question: str) -> st
 
 # ───────────────────────── Chat ─────────────────────────
 
-@app.post("/api/chat")
+@app.post("/api/chat", dependencies=AUTH)
 async def chat(request: Request):
     body = await request.json()
     model = body.get("model")
@@ -343,7 +342,8 @@ async def chat(request: Request):
 
 # Plain `def`, not `async def`: it does blocking work (file parsing, HTTP calls to
 # Ollama), so FastAPI runs it in a thread pool instead of freezing the server.
-@app.post("/api/documents/upload")
+
+@app.post("/api/documents/upload", dependencies=AUTH)
 def upload_document(file: UploadFile = File(...)):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Missing filename")
@@ -380,12 +380,12 @@ def upload_document(file: UploadFile = File(...)):
     return {"filename": file.filename, "chunks_stored": len(chunks)}
 
 
-@app.get("/api/documents")
+@app.get("/api/documents", dependencies=AUTH)
 def get_documents():
     return {"documents": list_documents()}
 
 
-@app.delete("/api/documents/{filename}")
+@app.delete("/api/documents/{filename}", dependencies=AUTH)
 def delete_document(filename: str):
     delete_by_filename(filename)
     return {"deleted": filename}
