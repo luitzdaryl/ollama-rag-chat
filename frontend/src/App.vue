@@ -1066,6 +1066,7 @@ async function copyLink() {
         <button :class="{ active: activeTab === 'chat' }" @click="activeTab = 'chat'">💬 Chat</button>
         <button :class="{ active: activeTab === 'documents' }" @click="activeTab = 'documents'">📄 Documents</button>
         <button :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'">⚙️ Settings</button>
+        <button v-if="me?.role === 'admin'" :class="{ active: activeTab === 'admin' }" @click="activeTab = 'admin'">🛡️ Admin</button>
       </div>
     </div>
 
