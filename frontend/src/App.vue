@@ -989,7 +989,7 @@ async function copyLink() {
 
 </script>
 <template>
-  
+
 <!-- ───────── Authentication ───────── -->
 
 <div v-if="authState !== 'ready'" class="auth-page">
@@ -1393,6 +1393,79 @@ async function copyLink() {
 
             <button class="reset-button" @click="resetRetrieval">Reset retrieval settings</button>
           </details>
+
+        <!-- Admin Panel -->
+          <div v-if="activeTab === 'admin' && me?.role === 'admin'" class="admin-panel">
+        <h3>🛡️ Users</h3>
+        <p class="settings-hint">Invite people with a one-time link, or create an account for them. You never see or choose anyone's password.</p>
+
+        <div v-if="newLink" class="link-box">
+          <strong>{{ newLink.label }}</strong>
+          <div class="link-row">
+            <input :value="newLink.url" readonly @focus="$event.target.select()" />
+            <button class="import-btn" @click="copyLink">{{ linkCopied ? 'Copied' : 'Copy' }}</button>
+          </div>
+          <p class="settings-hint">Shown only once. It works one time and expires on {{ fmtDate(newLink.expires_at) }}. Send it privately, like a password.</p>
+          <button class="link-btn" @click="newLink = null">Dismiss</button>
+        </div>
+
+        <p v-if="adminError" class="upload-error">{{ adminError }}</p>
+
+        <div class="admin-forms">
+          <div class="admin-form">
+            <h4>Invite someone</h4>
+            <input v-model="inviteNote" class="num-input wide" placeholder="Note, e.g. who it's for (optional)" maxlength="100" />
+            <button class="import-btn" @click="createInvite">Create invite link</button>
+          </div>
+          <div class="admin-form">
+            <h4>Create an account</h4>
+            <input v-model="newUser.username" class="num-input wide" placeholder="Username" />
+            <input v-model="newUser.display_name" class="num-input wide" placeholder="Display name" />
+            <select v-model="newUser.role" class="num-input wide">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+            <button class="import-btn" @click="createUser">Create and get link</button>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="user-table">
+            <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead>
+            <tbody>
+              <tr v-for="u in adminUsers" :key="u.id">
+                <td>
+                  <strong>{{ u.display_name }}</strong><br />
+                  <span class="muted">@{{ u.username }}<template v-if="!u.has_password"> · no password yet</template></span>
+                </td>
+                <td>{{ u.role }}</td>
+                <td>{{ u.status }}</td>
+                <td>{{ u.last_login_at ? fmtDate(u.last_login_at) : 'never' }}</td>
+                <td class="row-actions">
+                  <template v-if="u.id !== me.id">
+                    <button class="link-btn" @click="resetLink(u)">{{ u.has_password ? 'Reset link' : 'New setup link' }}</button>
+                    <button v-if="u.status === 'active'" class="link-btn" @click="setUserStatus(u, 'disabled')">Disable</button>
+                    <button v-else class="link-btn" @click="setUserStatus(u, 'active')">Enable</button>
+                    <button class="link-btn danger-text" @click="removeUser(u)">Delete</button>
+                  </template>
+                  <span v-else class="muted">you</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h4 v-if="adminLinks.length">Pending links</h4>
+        <ul v-if="adminLinks.length" class="pending-links">
+          <li v-for="l in adminLinks" :key="l.id">
+            <span>
+              {{ l.purpose === 'invite' ? 'Invite' : 'Password link' }}<template v-if="l.for_username"> for @{{ l.for_username }}</template><template v-if="l.note"> · {{ l.note }}</template> · expires {{ fmtDate(l.expires_at) }}
+            </span>
+            <button class="link-btn" @click="revokeLink(l)">Revoke</button>
+          </li>
+        </ul>
+      </div>
+
       </div>
     </main>
 
