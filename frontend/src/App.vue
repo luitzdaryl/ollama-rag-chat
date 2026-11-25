@@ -989,7 +989,64 @@ async function copyLink() {
 
 </script>
 <template>
-  <div class="shell">
+  
+<!-- ───────── Authentication ───────── -->
+
+<div v-if="authState !== 'ready'" class="auth-page">
+    <div class="auth-card">
+      <h1>Ollama Rag Chat</h1>
+
+      <p v-if="authState === 'loading'" class="auth-note">Loading…</p>
+
+      <template v-else-if="authState === 'error'">
+        <p class="auth-error">{{ authError }}</p>
+        <button class="auth-btn" @click="bootAuth">Retry</button>
+      </template>
+
+      <form v-else-if="authState === 'signedOut'" @submit.prevent="login">
+        <h2>Sign in</h2>
+        <label>Username<input v-model="loginForm.username" v-focus autocomplete="username" required /></label>
+        <label>Password<input v-model="loginForm.password" type="password" autocomplete="current-password" required /></label>
+        <p v-if="loginError" class="auth-error">{{ loginError }}</p>
+        <button class="auth-btn" :disabled="loginBusy">{{ loginBusy ? 'Signing in…' : 'Sign in' }}</button>
+        <p class="auth-note">No account yet? Ask the administrator for an invite link.</p>
+        <p v-if="needsAdmin" class="auth-note">
+          First time here? Create the first admin from a terminal:<br />
+          <code>docker compose exec backend python -m admin create-admin</code>
+        </p>
+      </form>
+
+      <p v-else-if="authState === 'setupLoading'" class="auth-note">Checking your link…</p>
+
+      <template v-else-if="authState === 'setupInvalid'">
+        <p class="auth-error">{{ setupError }}</p>
+        <p class="auth-note">Ask the administrator for a new link.</p>
+        <button class="auth-btn" @click="goToLogin">Go to sign in</button>
+      </template>
+
+      <form v-else-if="authState === 'setup'" @submit.prevent="completeSetup">
+        <h2>{{ setupInfo.purpose === 'invite' ? 'Create your account' : 'Choose a password' }}</h2>
+        <p v-if="setupInfo.purpose === 'password'" class="auth-note">
+          Hi {{ setupInfo.display_name }} (<strong>{{ setupInfo.username }}</strong>). Choose a password to continue.
+        </p>
+        <template v-if="setupInfo.purpose === 'invite'">
+          <label>Username<input v-model="setupForm.username" v-focus autocomplete="username" required /></label>
+          <label>Display name<input v-model="setupForm.display_name" autocomplete="name" required /></label>
+          <label>Email <span class="optional">(optional)</span><input v-model="setupForm.email" type="email" autocomplete="email" /></label>
+        </template>
+        <label>Password<input v-model="setupForm.password" type="password" autocomplete="new-password" required /></label>
+        <label>Repeat password<input v-model="setupForm.confirm" type="password" autocomplete="new-password" required /></label>
+        <p class="auth-note">At least 10 characters. Several random words make a strong password.</p>
+        <p v-if="setupError" class="auth-error">{{ setupError }}</p>
+        <button class="auth-btn" :disabled="setupBusy">{{ setupBusy ? 'Saving…' : 'Continue' }}</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ───────── Main app shell ───────── -->
+
+  <div v-else class="shell">
+    
     <!-- ───── Sidebar: chat list ───── -->
     <aside class="sidebar">
       <button class="new-chat-btn" @click="createChat">＋ New chat</button>
