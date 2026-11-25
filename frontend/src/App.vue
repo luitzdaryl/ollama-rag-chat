@@ -1049,9 +1049,13 @@ async function copyLink() {
     <div class="topbar">
       <header class="app-header">
         <h1>Ollama Rag Chat</h1>
-        <button class="theme-toggle" @click="toggleTheme">
-          {{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}
-        </button>
+        <div class="header-actions">
+          <span class="whoami">{{ me?.display_name }}<em v-if="me?.role === 'admin'"> · admin</em></span>
+          <button class="theme-toggle" @click="signOut">Sign out</button>
+          <button class="theme-toggle" @click="toggleTheme">
+            {{ theme === 'dark' ? '☀️ Light' : '🌙 Dark' }}
+          </button>
+        </div>
       </header>
 
       <select class="model-select" v-model="selectedModel">
