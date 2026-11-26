@@ -805,6 +805,7 @@ function endSession(message = '') {
   me.value = null
   loginError.value = message
   authState.value = 'signedOut'
+  saveError.value = ''
 }
 
 async function signOut() {
