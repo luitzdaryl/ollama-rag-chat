@@ -136,21 +136,26 @@ function resetRetrieval() {
 // Switching the reranker on asks the backend to load it (the first time that
 // downloads the model, which can take a while), so you see progress instead of
 // a mysteriously slow first question.
+
 const rerankState = ref('') // '' | 'loading' | 'ready' | an error message
+
+async function warmReranker() {
+  rerankState.value = 'loading'
+  try {
+    const res = await apiFetch('/api/rerank/warmup', { method: 'POST' })
+    if (!res.ok) throw new Error(`status ${res.status}`)
+    const data = await res.json()
+    rerankState.value = data.ready ? 'ready' : `Reranker unavailable: ${data.error || 'model could not load'}`
+  } catch {
+    rerankState.value = 'Reranker unavailable: backend not reachable'
+  }
+}
 watch(
   () => retrieval.use_reranker,
-  async (on) => {
-    if (!on) { rerankState.value = ''; return }
-    rerankState.value = 'loading'
-    try {
-      const res = await apiFetch(`/api/rerank/warmup`, { method: 'POST' })
-      const data = await res.json()
-      rerankState.value = data.ready ? 'ready' : `Reranker unavailable: ${data.error || 'model could not load'}`
-    } catch {
-      rerankState.value = 'Reranker unavailable: backend not reachable'
-    }
-  },
-  { immediate: true }
+  (on) => {
+    if (!on) rerankState.value = ''
+    else if (authState.value === 'ready') warmReranker() // before sign-in this would only be a 401
+  }
 )
 
 const modeLabel = computed(() => {
