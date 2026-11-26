@@ -128,6 +128,11 @@ const retrieval = reactive(
   Object.fromEntries(Object.entries(DEFAULT_RETRIEVAL).map(([k, v]) => [k, storedRetrieval[k] ?? v]))
 )
 
+watch(retrieval, (v) => localStorage.setItem('retrievalSettings', JSON.stringify(v)), { deep: true })
+function resetRetrieval() {
+  Object.assign(retrieval, DEFAULT_RETRIEVAL)
+}
+
 // Switching the reranker on asks the backend to load it (the first time that
 // downloads the model, which can take a while), so you see progress instead of
 // a mysteriously slow first question.
