@@ -1393,9 +1393,12 @@ async function copyLink() {
 
             <button class="reset-button" @click="resetRetrieval">Reset retrieval settings</button>
           </details>
+      </div>
+
+
 
         <!-- Admin Panel -->
-          <div v-if="activeTab === 'admin' && me?.role === 'admin'" class="admin-panel">
+        <div v-if="activeTab === 'admin' && me?.role === 'admin'" class="admin-panel">
         <h3>🛡️ Users</h3>
         <p class="settings-hint">Invite people with a one-time link, or create an account for them. You never see or choose anyone's password.</p>
 
@@ -1464,8 +1467,6 @@ async function copyLink() {
             <button class="link-btn" @click="revokeLink(l)">Revoke</button>
           </li>
         </ul>
-      </div>
-
       </div>
     </main>
 
