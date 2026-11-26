@@ -816,6 +816,7 @@ async function signOut() {
 
 async function startApp() {
   initChats()
+  if (retrieval.use_reranker) warmReranker()
   try {
     const res = await apiFetch('/api/models')
     if (!res.ok) throw new Error(`models: status ${res.status}`)
